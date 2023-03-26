@@ -48,27 +48,27 @@ int main(int argc, char **argv)
 	}  
 		
 
-    if (myid == 0) { // Setting the data to the slave processes
-		data = (int*) malloc (sizeof(int)* ITER);
+    if (myid == 0) {
+		data = (int*) malloc (sizeof(int)* ITER);  //Allocating memory for the data buffer
 		if (!data)
 		{
 			MPI_Abort(MPI_COMM_WORLD, MPI_ERR_COMM);
 			clear(data,buf);
 		}
 			
-		for (int i =0; i < ITER; i++)
+		for (int i =0; i < ITER; i++)  //Setting the data to the slave processes
 			data[i] = i;
 			
-		for (int i = 0; i < ITER; i+=ITER/(numprocs-1))
+		for (int i = 0; i < ITER; i+=ITER/(numprocs-1))  
 		{
 			printf("process %d sent numbers %d - %d to process %d\n",myid,i,i+ITER/(numprocs-1) -1 ,currentProc);
-			MPI_Send(data + i, ITER/(numprocs-1) , MPI_INT, currentProc, 0, MPI_COMM_WORLD);
+			MPI_Send(data + i, ITER/(numprocs-1) , MPI_INT, currentProc, 0, MPI_COMM_WORLD); //Sending the data to the slave processes
 			currentProc++;
 		}
-		currentProc = 1;
+		currentProc = 1;  //Setting current processes to process with ID of 1
     }
 	else {
-		buf = (int*) malloc(sizeof(int)*ITER/(numprocs-1));
+		buf = (int*) malloc(sizeof(int)*ITER/(numprocs-1)); //Allocating memory buffer for the recieved data
 		if (!buf)
 		{
 			MPI_Abort(MPI_COMM_WORLD, MPI_ERR_COMM);
@@ -77,7 +77,7 @@ int main(int argc, char **argv)
 		MPI_Recv(buf, ITER/(numprocs-1) , MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
 		for (int i = 0; i<ITER/(numprocs-1) && buf + i; i++)
-			res_proc += heavy(buf[i], coef);
+			res_proc += heavy(buf[i], coef);  //Executing the heacy function
 			
 		MPI_Send(&res_proc, 1, MPI_FLOAT, 0, FINISH_TAG, MPI_COMM_WORLD);
 		free(buf);
@@ -94,7 +94,6 @@ int main(int argc, char **argv)
 	{
 		printf("sum = %e\n", sum);
 		free(data);
-	}
-		
+	}	
     MPI_Finalize();
 }

@@ -1,13 +1,13 @@
 CC=mpicc
 OBJS=static.o dynamic.o sequential.o
-ALL=static dynamic sequencial
+ALL=static dynamic sequential
 DEBUG = -g
 CFLAGS= -std=c99 -Wall -Werror $(DEBUG)
 
 $(ALL):$(OBJS)
 	$(CC) static.o -o static -lm
 	$(CC) dynamic.o -o dynamic -lm
-	$(CC) sequential.o -o sequencial -lm
+	$(CC) sequential.o -o sequential -lm
 	
 static.o: static.c
 

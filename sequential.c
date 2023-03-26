@@ -22,7 +22,6 @@ int main(int argc, char **argv)
 {
 	int coef = atoi(argv[1]);
 	double sum = 0;
-	printf("the coefficient is %d\n",coef);
 	for (int i = 0; i < 100; i++)
 		sum += heavy(i, coef);
 	printf("sum = %e\n", sum);
