@@ -22,19 +22,12 @@ double heavy(int a, int b) {
 	return  sum;
 }
 
-void clear(int* data, int* buf)
-{
-	free(data);
-	free(buf);
-}
-
-
 int main(int argc, char **argv)
 {
-	int myid, numprocs, currentProc = 1;
+	int myid, numprocs;
     MPI_Status status;
 	double res_proc = 0, sum = 0;
-	int rec, currentNum = 0;
+	int currentNum = 0;
 
 	int coef = atoi(argv[1]);  //The coefficient of the the number
 
@@ -50,72 +43,36 @@ int main(int argc, char **argv)
 		
 
     if (myid == 0) {
-		
 		while (currentNum < ITER)
 		{
-			MPI_Recv(&res_proc, 1 , MPI_DOUBLE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-			sum += res_proc;
+			printf("sending data %d\n",currentNum);
+			MPI_Recv(NULL, 0 , MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 			if (status.MPI_TAG == CONTINUE_TAG)
 			{
 				MPI_Send(&currentNum, 1 , MPI_INT, MPI_ANY_SOURCE, CONTINUE_TAG, MPI_COMM_WORLD); //Sending the data to the slave processes
 				currentNum++;
 			}
 
+		}
+		for (int i =1; i< numprocs; i++)
+		{
+			MPI_Send(NULL, 0 , MPI_INT, i, FINISH_TAG, MPI_COMM_WORLD); //Sending the data to the slave processes
 		}
 	}
 	else
 	{
-		while (currentNum < ITER)
+		MPI_Send(&currentNum, 1 , MPI_DOUBLE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD);
+		while (status.MPI_TAG != FINISH_TAG)
 		{
-			MPI_Recv(&res_proc, 1 , MPI_DOUBLE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-			sum += res_proc;
-			if (status.MPI_TAG == CONTINUE_TAG)
-			{
-				MPI_Send(&currentNum, 1 , MPI_INT, MPI_ANY_SOURCE, CONTINUE_TAG, MPI_COMM_WORLD); //Sending the data to the slave processes
-				currentNum++;
-			}
+			MPI_Recv(&currentNum, 1 , MPI_DOUBLE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+			sum += heavy(currentNum,coef);
+			MPI_Send(NULL, 0 , MPI_INT, 0, CONTINUE_TAG, MPI_COMM_WORLD); //Sending continue tag
 
 		}
-	}
-			
-		for (int i =0; i < ITER; i++)  //Setting the data to the slave processes
-			data[i] = i;
-			
-		for (int i = 0; i < ITER; i+=ITER/(numprocs-1))  
-		{
-			printf("process %d sent numbers %d - %d to process %d\n",myid,i,i+ITER/(numprocs-1) -1 ,currentProc);
-			MPI_Send(data + i, ITER/(numprocs-1) , MPI_INT, currentProc, 0, MPI_COMM_WORLD); //Sending the data to the slave processes
-			currentProc++;
-		}
-		currentProc = 1;  //Setting current processes to process with ID of 1
-    }
-	else {
-		buf = (int*) malloc(sizeof(int)*ITER/(numprocs-1)); //Allocating memory buffer for the recieved data
-		if (!buf)
-		{
-			MPI_Abort(MPI_COMM_WORLD, MPI_ERR_COMM);
-			clear(data,buf);
-		}
-		MPI_Recv(buf, ITER/(numprocs-1) , MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-
-		for (int i = 0; i<ITER/(numprocs-1) && buf + i; i++)
-			res_proc += heavy(buf[i], coef);  //Executing the heacy function
-			
-		MPI_Send(&res_proc, 1, MPI_FLOAT, 0, FINISH_TAG, MPI_COMM_WORLD);
-		free(buf);
+		MPI_Send(&sum, 1 , MPI_DOUBLE, 0, CONTINUE_TAG, MPI_COMM_WORLD);
 	}
 
-	while (myid == 0 && currentProc < numprocs)
-	{
-		MPI_Recv(&res_proc, 1, MPI_FLOAT, MPI_ANY_SOURCE, FINISH_TAG, MPI_COMM_WORLD, &status);
-		sum+=res_proc;
-		if (status.MPI_TAG == FINISH_TAG)
-			currentProc++;
-	}
 	if (myid == 0)
-	{
-		printf("sum = %e\n", sum);
-		free(data);
-	}	
+		printf("sum = %e\n", sum);	
     MPI_Finalize();
 }
