@@ -24,7 +24,7 @@ double heavy(int a, int b) {
 
 int main(int argc, char **argv)
 {
-	int myid, numprocs;
+	int myid, numprocs ,currentProc=1;
     MPI_Status status;
 	double res_proc = 0, sum = 0;
 	int currentNum = 0;
@@ -46,33 +46,34 @@ int main(int argc, char **argv)
 		while (currentNum < ITER)
 		{
 			printf("sending data %d\n",currentNum);
-			MPI_Recv(NULL, 0 , MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-			if (status.MPI_TAG == CONTINUE_TAG)
-			{
-				MPI_Send(&currentNum, 1 , MPI_INT, MPI_ANY_SOURCE, CONTINUE_TAG, MPI_COMM_WORLD); //Sending the data to the slave processes
-				currentNum++;
-			}
-
+			MPI_Probe(MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+			printf("got tag from %d\n",status.MPI_TAG);
+			MPI_Send(&currentNum, 1 , MPI_INT, status.MPI_TAG, CONTINUE_TAG, MPI_COMM_WORLD); //Sending the data to the slave processes
+			currentNum++;
+		
 		}
+
 		for (int i =1; i< numprocs; i++)
 		{
-			MPI_Send(NULL, 0 , MPI_INT, i, FINISH_TAG, MPI_COMM_WORLD); //Sending the data to the slave processes
+			MPI_Send(NULL, 0 , MPI_CHAR, i, FINISH_TAG, MPI_COMM_WORLD); //Sending the data to the slave processes
 		}
+
+		while (currentProc<numprocs)
+		{
+			sum += MPI_Recv(&res_proc, 1 , MPI_DOUBLE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+		}
+		printf("sum = %e\n", sum);
 	}
 	else
 	{
-		MPI_Send(&currentNum, 1 , MPI_DOUBLE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD);
+		MPI_Send(NULL, 0 , MPI_CHAR, 0, myid, MPI_COMM_WORLD);
 		while (status.MPI_TAG != FINISH_TAG)
 		{
 			MPI_Recv(&currentNum, 1 , MPI_DOUBLE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 			sum += heavy(currentNum,coef);
-			MPI_Send(NULL, 0 , MPI_INT, 0, CONTINUE_TAG, MPI_COMM_WORLD); //Sending continue tag
-
+			MPI_Send(NULL, 0 , MPI_CHAR, 0, myid, MPI_COMM_WORLD); //Sending continue tag
 		}
 		MPI_Send(&sum, 1 , MPI_DOUBLE, 0, CONTINUE_TAG, MPI_COMM_WORLD);
 	}
-
-	if (myid == 0)
-		printf("sum = %e\n", sum);	
     MPI_Finalize();
 }
