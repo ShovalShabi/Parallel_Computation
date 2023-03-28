@@ -11,7 +11,7 @@
 double heavy(int a, int b) {
 	int i, loop;
 	double sum = 0;
-	loop = HEAVY * (rand() % b);
+	loop = HEAVY * (6 % b);
 	for (i = 0; i < loop; i++)
 		sum += sin(a*exp(cos((double)(i%5))));
 	return  sum;
@@ -20,7 +20,6 @@ double heavy(int a, int b) {
 // Sequential code to be parallelized
 int main(int argc, char **argv)
 {
-	srand(time(NULL));
 	int coef = atoi(argv[1]);
 	double sum = 0;
 	for (int i = 0; i < 100; i++)
