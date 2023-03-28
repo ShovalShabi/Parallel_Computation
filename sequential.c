@@ -11,7 +11,7 @@
 double heavy(int a, int b) {
 	int i, loop;
 	double sum = 0;
-	loop = HEAVY * (6 % b);
+	loop = HEAVY * (rand() % b);
 	for (i = 0; i < loop; i++)
 		sum += sin(a*exp(cos((double)(i%5))));
 	return  sum;
