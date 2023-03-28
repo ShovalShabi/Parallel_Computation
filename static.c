@@ -30,6 +30,7 @@ void clear(int* data, int* buf)
 
 int main(int argc, char **argv)
 {
+	srand(time(NULL));
 	int myid, numprocs, currentProc = 1;
     MPI_Status status;
 	float res_proc = 0, sum = 0;

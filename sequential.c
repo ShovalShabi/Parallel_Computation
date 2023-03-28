@@ -20,6 +20,7 @@ double heavy(int a, int b) {
 // Sequential code to be parallelized
 int main(int argc, char **argv)
 {
+	srand(time(NULL));
 	int coef = atoi(argv[1]);
 	double sum = 0;
 	for (int i = 0; i < 100; i++)
