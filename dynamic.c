@@ -24,10 +24,10 @@ double heavy(int a, int b) {
 
 int main(int argc, char **argv)
 {
-	int myid, numprocs ,currentProc=1;
+	int myid, numprocs, currentNum = 0;
     MPI_Status status;
-	double res_proc = 0, sum = 0;
-	int currentNum = 0;
+	double sum = 0;
+	
 
 	int coef = atoi(argv[1]);  //The coefficient of the the number
 
@@ -43,37 +43,40 @@ int main(int argc, char **argv)
 		
 
     if (myid == 0) {
+		for (int i = 1; i < numprocs; i++)
+			MPI_Recv(NULL, 0, MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status); //Recieving ready signal of all slave processes
+
 		while (currentNum < ITER)
 		{
-			printf("sending data %d\n",currentNum);
-			MPI_Probe(MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
-			printf("got tag from %d\n",status.MPI_TAG);
-			MPI_Send(&currentNum, 1 , MPI_INT, status.MPI_TAG, CONTINUE_TAG, MPI_COMM_WORLD); //Sending the data to the slave processes
+			double res;
+			MPI_Recv(NULL, 0 , MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status); //Recieving the result from a specific slave process that attached it's tag to the message
+			MPI_Send(&currentNum, 1, MPI_INT, status.MPI_TAG, CONTINUE_TAG, MPI_COMM_WORLD); //Sending the next number to specific slave process that attached it's tag to the message
+			MPI_Recv(&res, 1 , MPI_DOUBLE, status.MPI_TAG, MPI_ANY_TAG, MPI_COMM_WORLD, &status); //Recieving the result from a specific slave process that attached it's tag to the message
+			sum+=res;
 			currentNum++;
-		
 		}
+		// for (int i = 0; i < ITER; i++)
+		// {
+		// 	MPI_Recv(NULL, 0, MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status); //Recieving ready signal of all slave processes
+			
+			
 
-		for (int i =1; i< numprocs; i++)
-		{
-			MPI_Send(NULL, 0 , MPI_CHAR, i, FINISH_TAG, MPI_COMM_WORLD); //Sending the data to the slave processes
-		}
+		// }
 
-		while (currentProc<numprocs)
-		{
-			sum += MPI_Recv(&res_proc, 1 , MPI_DOUBLE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-		}
+		for (int i = 1; i < numprocs; i++)
+			MPI_Send(&i, 0, MPI_CHAR, i, FINISH_TAG, MPI_COMM_WORLD); //Sending Termination tag to all slave processes
 		printf("sum = %e\n", sum);
 	}
 	else
 	{
-		MPI_Send(NULL, 0 , MPI_CHAR, 0, myid, MPI_COMM_WORLD);
+		// MPI_Send(NULL, 0 , MPI_CHAR, 0, myid, MPI_COMM_WORLD);  //Sending ready signal to master process
 		while (status.MPI_TAG != FINISH_TAG)
 		{
-			MPI_Recv(&currentNum, 1 , MPI_DOUBLE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-			sum += heavy(currentNum,coef);
-			MPI_Send(NULL, 0 , MPI_CHAR, 0, myid, MPI_COMM_WORLD); //Sending continue tag
+			MPI_Send(NULL, 0 , MPI_CHAR, 0, myid, MPI_COMM_WORLD);  //Sending ready signal to master process
+			MPI_Recv(&currentNum, 1 , MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);  //Recieving the next number to calculate
+			sum = heavy(currentNum,coef);
+			MPI_Send(&sum, 1, MPI_DOUBLE, 0, myid, MPI_COMM_WORLD);  //Sending continue tag
 		}
-		MPI_Send(&sum, 1 , MPI_DOUBLE, 0, CONTINUE_TAG, MPI_COMM_WORLD);
 	}
     MPI_Finalize();
 }

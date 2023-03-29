@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #define HEAVY 1000000
+#define ITER 100
 
 // This function performs heavy computations, 
 // its run time depends on a and b values
@@ -22,7 +23,7 @@ int main(int argc, char **argv)
 {
 	int coef = atoi(argv[1]);
 	double sum = 0;
-	for (int i = 0; i < 100; i++)
+	for (int i = 0; i < ITER; i++)
 		sum += heavy(i, coef);
 	printf("sum = %e\n", sum);
 }

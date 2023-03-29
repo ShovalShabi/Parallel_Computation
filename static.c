@@ -41,11 +41,12 @@ int main(int argc, char **argv)
 		for (int i = myid; i <ITER; i+=ITER/numprocs)
 			sum += heavy(i,coef);
 
-			
+		printf("process %d calculated the sum %e\n",myid,sum);
 		while (calcs < numprocs -1)
 		{
 			double res;
 			MPI_Recv(&res, 1, MPI_DOUBLE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+			printf("process %d got the sum %e from process %d\n",myid,res,status.MPI_TAG);
 			sum += res;
 			calcs++;
 		}
@@ -55,6 +56,7 @@ int main(int argc, char **argv)
 		for (int i = myid; i <ITER; i+=ITER/numprocs)
 			sum += heavy(i,coef);
 		MPI_Send(&sum, 1, MPI_DOUBLE, 0, myid, MPI_COMM_WORLD);
+		printf("process %d sent the sum %e to process 0\n",myid,sum);
 	}
     MPI_Finalize();
 }
