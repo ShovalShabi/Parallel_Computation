@@ -49,7 +49,8 @@ int main(int argc, char **argv)
 	**When each slave processes is available, it'll send the current sum and will wait for the next number.
 	**When all the calculations are done the master process sends the FINISH tag to the slave processes.
 	**************************************************************************************************************/
-    if (myid == 0) {
+    if (myid == 0)
+	{
 		while (currentProc < numprocs)
 		{
 			/*Recieving the result from a specific slave process that attached it's tag to the message*/

@@ -47,7 +47,8 @@ int main(int argc, char **argv)
 	**from the slave processes.
 	**The numbers are calculted from the current id number of the process with an offset of ITER/numprocs.
 	******************************************************************************************************************/
-    if (myid == 0) {
+    if (myid == 0)
+	{
 		for (int i = myid; i <ITER; i+=ITER/numprocs)
 			sum += heavy(i,coef);
 
