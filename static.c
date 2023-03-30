@@ -25,7 +25,7 @@ int main(int argc, char **argv)
 {
 	time_t start = time(NULL);
 	time_t end;
-	int myid, numprocs, calcs = 0;
+	int myid, numprocs, calcs = 0, lastCalc = 0;
 	MPI_Status status;
 	double sum = 0;
 
@@ -50,8 +50,15 @@ int main(int argc, char **argv)
 	******************************************************************************************************************/
 	if (myid == 0)
 	{
-		for (int i = myid; i < ITER; i += ITER / numprocs)
+		for (int i = myid; i < ITER; i += numprocs)
+		{
+			/*Wasting random numbers untill the target number has the matching random number*/
+			for (int j = lastCalc; j < i; j++)
+				rand();
+			lastCalc = i + 1; // The next number to be wasted in the next iteraion
+
 			sum += heavy(i, coef);
+		}
 
 		while (calcs < numprocs - 1)
 		{
@@ -72,8 +79,15 @@ int main(int argc, char **argv)
 	************************************************************************************************************************/
 	else
 	{
-		for (int i = myid; i < ITER; i += ITER / numprocs)
+		for (int i = myid; i < ITER; i += numprocs)
+		{
+			/*Wasting random numbers untill the target number has the matching random number*/
+			for (int j = lastCalc; j < i; j++)
+				rand();
+			lastCalc = i + 1; // The next number to be wasted in the next iteraion
+
 			sum += heavy(i, coef);
+		}
 		MPI_Send(&sum, 1, MPI_DOUBLE, 0, myid, MPI_COMM_WORLD);
 	}
 	MPI_Finalize();

@@ -26,7 +26,7 @@ int main(int argc, char **argv)
 {
 	time_t start = time(NULL);
 	time_t end;
-	int myid, numprocs, currentNum = 0, currentProc = 1;
+	int myid, numprocs, currentNum = 0, lastCalc = 0, currentProc = 1;
 	MPI_Status status;
 	double sum = 0;
 
@@ -87,6 +87,12 @@ int main(int argc, char **argv)
 		{
 			MPI_Send(&sum, 1, MPI_DOUBLE, 0, myid, MPI_COMM_WORLD);						// Sending the result to the master process with process id as a tag
 			MPI_Recv(&currentNum, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status); // Recieving the next number to calculate
+
+			/*Wasting random numbers untill the target number has the matching random number*/
+			for (int i = lastCalc; i < currentNum; i++)
+				rand();
+			lastCalc = currentNum + 1; // The next number to be wasted in the next iteraion
+
 			sum = heavy(currentNum, coef);
 		}
 	}
