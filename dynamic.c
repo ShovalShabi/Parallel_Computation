@@ -11,12 +11,11 @@
 #define CONTINUE_TAG 100
 
 // This function performs heavy computations, 
-// its run time depends on a and b values
-// DO NOT change this function
+// its run time depends on a and b values.
 double heavy(int a, int b) {
 	int i, loop;
 	double sum = 0;
-	loop = HEAVY * (6 % b);
+	loop = HEAVY * (rand() % b);
 	for (i = 0; i < loop; i++)
 		sum += sin(a*exp(cos((double)(i%5))));
 	return  sum;
@@ -24,13 +23,16 @@ double heavy(int a, int b) {
 
 int main(int argc, char **argv)
 {
-	int myid, numprocs, currentNum = 0;
+	time_t start = time(NULL);
+	time_t end;
+	int myid, numprocs, currentNum = 0, currentProc = 1;
     MPI_Status status;
 	double sum = 0;
 	
 
-	int coef = atoi(argv[1]);  //The coefficient of the the number
+	int coef = atoi(argv[1]);  //The conversion of the coefficient from string to integer
 
+	/**************MPI setup****************/
     MPI_Init(&argc,&argv);
     MPI_Comm_size(MPI_COMM_WORLD,&numprocs);
     MPI_Comm_rank(MPI_COMM_WORLD,&myid);
@@ -41,28 +43,48 @@ int main(int argc, char **argv)
 		MPI_Abort(MPI_COMM_WORLD, MPI_ERR_COMM);
 	}  
 		
-
+	/*Master code block:
+	**------------------
+	**At first the master waits for initial response from the slave processes and then provides tasks dynamically.
+	**When each slave processes is available, it'll send the current sum and will wait for the next number.
+	**When all the calculations are done the master process sends the FINISH tag to the slave processes.
+	**************************************************************************************************************/
     if (myid == 0) {
-		for (int i = 1; i < ITER; i++)
+		while (currentProc < numprocs)
 		{
+			/*Recieving the result from a specific slave process that attached it's tag to the message*/
 			double res;
-			MPI_Recv(&res, 1 , MPI_DOUBLE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status); //Recieving the result from a specific slave process that attached it's tag to the message			sum+=res;
-			printf("master got result of %e from process %d\n",sum,status.MPI_TAG);
+			MPI_Recv(&res, 1 , MPI_DOUBLE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 			sum+=res;
-			MPI_Send(&i, 1, MPI_INT, status.MPI_TAG, CONTINUE_TAG, MPI_COMM_WORLD); //Sending the next number to specific slave process that attached it's tag to the message
+
+			/*Sending the next number to specific slave process that attached it's tag to the message*/
+			if (currentNum < ITER)
+			{
+				MPI_Send(&currentNum, 1, MPI_INT, status.MPI_TAG, CONTINUE_TAG, MPI_COMM_WORLD);
+				currentNum++;
+			}
+			/*Sending Termination tag to specific slave processes*/
+			else
+			{
+				MPI_Send(NULL, 0, MPI_CHAR, status.MPI_TAG, FINISH_TAG, MPI_COMM_WORLD);
+				currentProc++;
+			}
 		}
-			
-		for (int i = 1; i < numprocs; i++)
-			MPI_Send(&i, 0, MPI_CHAR, i, FINISH_TAG, MPI_COMM_WORLD); //Sending Termination tag to all slave processes
 		printf("sum = %e\n", sum);
+		end = time(NULL);
+		printf("The program runtime is %f secondes\n",difftime(end,start));
 	}
+	/*Slave code block:
+	**-----------------
+	**At first the slave sends an initial message with sum value of 0.
+	**When the slave process recives the next number to caculate it'll send the result on the next itration.
+	**When the slave process recives a FINISH tag, the slave will exit the while loop and will exit from the program as well.
+	************************************************************************************************************************/
 	else
 	{
-		// MPI_Send(NULL, 0 , MPI_CHAR, 0, myid, MPI_COMM_WORLD);  //Sending ready signal to master process
 		while (status.MPI_TAG != FINISH_TAG)
 		{
-			MPI_Send(&sum, 1 , MPI_DOUBLE, 0, myid, MPI_COMM_WORLD);  //Sending ready signal to master process
-			printf("process %d sent result of %e\n",myid,sum);
+			MPI_Send(&sum, 1 , MPI_DOUBLE, 0, myid, MPI_COMM_WORLD);  //Sending the result to the master process with process id as a tag
 			MPI_Recv(&currentNum, 1 , MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);  //Recieving the next number to calculate
 			sum = heavy(currentNum,coef);
 		}

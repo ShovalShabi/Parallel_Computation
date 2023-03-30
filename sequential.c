@@ -21,9 +21,13 @@ double heavy(int a, int b) {
 // Sequential code to be parallelized
 int main(int argc, char **argv)
 {
-	int coef = atoi(argv[1]);
+	time_t start = time(NULL);
+	time_t end;
+	int coef = atoi(argv[1]);  //The conversion of the coefficient from string to integer
 	double sum = 0;
 	for (int i = 0; i < ITER; i++)
 		sum += heavy(i, coef);
 	printf("sum = %e\n", sum);
+	end = time(NULL);
+	printf("The program runtime is %f secondes\n",difftime(end,start));
 }
