@@ -96,6 +96,5 @@ int main(int argc, char **argv)
 			sum = heavy(currentNum, coef);
 		}
 	}
-	printf("");
 	MPI_Finalize();
 }
