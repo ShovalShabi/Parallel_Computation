@@ -1,2 +1,5 @@
 #Ignoring all linkage files
 *.o
+
+#Ignoring all .vscode folder
+.vscode
