@@ -22,6 +22,13 @@ double heavy(int a, int b)
 	return sum;
 }
 
+void wasteRands(int lastCalc, int trgtNum)
+{
+	/*Wasting random numbers untill the target number has the matching random number*/
+	for (int j = lastCalc; j < trgtNum; j++)
+		rand();
+}
+
 int main(int argc, char **argv)
 {
 	double start, end;
@@ -75,7 +82,7 @@ int main(int argc, char **argv)
 		printf("sum = %e\n", sum);
 
 		end = MPI_Wtime(); // End time
-		printf("The program runtime is %f secondes\n", end - start);
+		printf("The program runtime is %f seconds\n", end - start);
 	}
 	/*Slave code block:
 	**-----------------
@@ -90,9 +97,7 @@ int main(int argc, char **argv)
 			MPI_Send(&sum, 1, MPI_DOUBLE, 0, myid, MPI_COMM_WORLD);						// Sending the result to the master process with process id as a tag
 			MPI_Recv(&currentNum, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status); // Recieving the next number to calculate
 
-			/*Wasting random numbers untill the target number has the matching random number*/
-			for (int i = lastCalc; i < currentNum; i++)
-				rand();
+			wasteRands(lastCalc, currentNum);
 			lastCalc = currentNum + 1; // The next number to be wasted in the next iteraion
 
 			sum = heavy(currentNum, coef);

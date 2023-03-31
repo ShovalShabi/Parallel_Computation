@@ -10,7 +10,6 @@
 
 // This function performs heavy computations,
 // its run time depends on a and b values
-// DO NOT change this function
 double heavy(int a, int b)
 {
 	int i, loop;
@@ -19,6 +18,13 @@ double heavy(int a, int b)
 	for (i = 0; i < loop; i++)
 		sum += sin(a * exp(cos((double)(i % 5))));
 	return sum;
+}
+
+void wasteRands(int lastCalc, int trgtNum)
+{
+	/*Wasting random numbers untill the target number has the matching random number*/
+	for (int j = lastCalc; j < trgtNum; j++)
+		rand();
 }
 
 int main(int argc, char **argv)
@@ -53,11 +59,8 @@ int main(int argc, char **argv)
 	{
 		for (int i = myid; i < ITER; i += numprocs)
 		{
-			/*Wasting random numbers untill the target number has the matching random number*/
-			for (int j = lastCalc; j < i; j++)
-				rand();
+			wasteRands(lastCalc, i);
 			lastCalc = i + 1; // The next number to be wasted in the next iteraion
-
 			sum += heavy(i, coef);
 		}
 
@@ -71,7 +74,7 @@ int main(int argc, char **argv)
 		printf("sum = %e\n", sum);
 
 		end = MPI_Wtime(); // End time
-		printf("The program runtime is %f secondes\n", end - start);
+		printf("The program runtime is %f seconds\n", end - start);
 	}
 	/*Slave code block:
 	**-----------------
@@ -83,11 +86,8 @@ int main(int argc, char **argv)
 	{
 		for (int i = myid; i < ITER; i += numprocs)
 		{
-			/*Wasting random numbers untill the target number has the matching random number*/
-			for (int j = lastCalc; j < i; j++)
-				rand();
+			wasteRands(lastCalc, i);
 			lastCalc = i + 1; // The next number to be wasted in the next iteraion
-
 			sum += heavy(i, coef);
 		}
 		MPI_Send(&sum, 1, MPI_DOUBLE, 0, myid, MPI_COMM_WORLD);

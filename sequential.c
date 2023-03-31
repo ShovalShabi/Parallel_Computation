@@ -8,7 +8,6 @@
 
 // This function performs heavy computations,
 // its run time depends on a and b values
-// DO NOT change this function
 double heavy(int a, int b)
 {
 	int i, loop;
@@ -30,5 +29,5 @@ int main(int argc, char **argv)
 		sum += heavy(i, coef);
 	printf("sum = %e\n", sum);
 	end = time(NULL);
-	printf("The program runtime is %f secondes\n", difftime(end, start));
+	printf("The program runtime is %f seconds\n", difftime(end, start));
 }
