@@ -24,8 +24,7 @@ double heavy(int a, int b)
 
 int main(int argc, char **argv)
 {
-	time_t start = time(NULL);
-	time_t end;
+	double start, end;
 	int myid, numprocs, currentNum = 0, lastCalc = 0, currentProc = 1;
 	MPI_Status status;
 	double sum = 0;
@@ -36,6 +35,8 @@ int main(int argc, char **argv)
 	MPI_Init(&argc, &argv);
 	MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+
+	start = MPI_Wtime(); // Start time
 
 	if (numprocs < MINIMUM_PROCS) // There is not enough processes to calculate heavy, 2 minimum are required
 	{
@@ -72,8 +73,9 @@ int main(int argc, char **argv)
 			}
 		}
 		printf("sum = %e\n", sum);
-		end = time(NULL);
-		printf("The program runtime is %f secondes\n", difftime(end, start));
+
+		end = MPI_Wtime(); // End time
+		printf("The program runtime is %f secondes\n", end - start);
 	}
 	/*Slave code block:
 	**-----------------
