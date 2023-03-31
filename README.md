@@ -8,7 +8,7 @@ The code is dealing with several Parallel Computation methodologies.
 Some will receive simple tasks and some might get a bit more difficult tasks (The master process won't get any task, only set up the data and gather the data from the slaves)
 
 ### How to Run The Code: ###
-* There is Makefile supplied to you, all you need to do is yo open the terminal locally in the folder's path and then enter the command: `make`
+* There is a Makefile supplied to you, all you need to do is to open the terminal locally in the folder's path and then enter the command: `make`
 
 * All the source files will immediately go through linkage by mpicc compiler
 
