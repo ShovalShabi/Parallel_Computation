@@ -16,6 +16,6 @@ Some will receive simple tasks and some might get a bit more difficult tasks (Th
 
 * Choose the number of processes you would like to run, for example, the command: `mpiexec -np 5 ./static 10`, will run the static methodology with 5 processes with coefficient 10 as defined within the source file.
 
-*To clean the file enter the command: `make clean`
+* To clean the file enter the command: `make clean`
 
 **sequential executable is a regular executable, so please run regularly without mpiexec** 
