@@ -1,10 +1,9 @@
 /*
  ============================================================================
- Name        : Exercise2OpenMP.c
- Author      :
- Version     :
- Copyright   : Your copyright notice
- Description : Hello OpenMP World in C
+ Name        : main.c
+ Author      : Shoval Shabi 
+ ID    		 : 208383885
+ Description : A program that calcultes heavy function using OpenMP and MPI
  ============================================================================
  */
 #include <omp.h>
@@ -18,6 +17,7 @@
 #define MASTER_PROC 0
 #define MINIMUM_PROCS 2
 
+/*The heavy function*/
 double f(double a, int b) {
 	double value = 0;
 	for (int i = 0; i < ITER; i++)
@@ -25,17 +25,22 @@ double f(double a, int b) {
 	return value;
 }
 
+
 double* calculateWithThreads(double *data, int numThreads,int numProcs ,int pid, int sizeData) {
+	/*Allocating reslut buffer*/
     double *res = (double*) calloc(sizeData, sizeof(double));
     if (!res) {
         printf("Cannot allocate memory to result buffer");
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
-    /* This creates a team of threads; each thread has own copy of variables  */
+    /* This creates a team of threads, each thread has own copy of variables  */
 	omp_set_num_threads(numThreads);
 #pragma omp parallel
     {
 #pragma omp for
+		/* The data is calculated bu offsets assuming there is two processes and the current process has id of 0,
+		** it will calculate data[0] data[2] data[4] and so on
+		*/
         for (int i = pid; i < sizeData; i+=numProcs)
             res[i] = f(data[i], i);
     }
@@ -43,26 +48,26 @@ double* calculateWithThreads(double *data, int numThreads,int numProcs ,int pid,
 }
 
 /**
- * Hello OpenMP World prints the number of threads and the current thread id
+ * The main program, each process calculte the heavy function f, the first process is preparing the data and then calculates
+ * the results of f function along with the second process
  */
 int main(int argc, char *argv[]) {
 
-	double *data = NULL; /* data array */
-	double *res = NULL; /* result array */
-	int sizeData;
-	int pid; /* rank of process */
-	int numProcs; /* number of processes */
-	MPI_Status status; /* return status for receive */
+	double *data = NULL, *res = NULL, sum = 0; /* Data array, result array and the total sum*/
+	double startTime, endTime;
+	int sizeData, pid , numProcs; /* Total variable count from input.txt, rank of process and number of process*/
+	MPI_Status status; /* Return status for receive */
 
-	/* start up MPI */
-
+	/* Start up MPI */
 	MPI_Init(&argc, &argv);
 
-	/* find out process rank */
+	/* Find out process rank */
 	MPI_Comm_rank(MPI_COMM_WORLD, &pid);
 
-	/* find out number of processes */
+	/* Find out number of processes */
 	MPI_Comm_size(MPI_COMM_WORLD, &numProcs);
+
+	startTime = MPI_Wtime(); // Start time
 
 	if (numProcs != MINIMUM_PROCS) {
 		perror("Please create only 2 processes\n");
@@ -70,6 +75,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (!pid) {
+		/* This section handle with reading from file input.txt and allocating buffer for the data*/
 		FILE *filePtr = fopen("input.txt", "r");
 
 		if(!filePtr){
@@ -77,71 +83,68 @@ int main(int argc, char *argv[]) {
 			MPI_Abort(MPI_COMM_WORLD, MPI_ERR_COMM);
 		}
 
+		/* Reading the amount of variables */
 		if(fscanf(filePtr,"%d",&sizeData) != 1){
 			perror("Cannot read the number of data\n");
 			MPI_Abort(MPI_COMM_WORLD, MPI_ERR_COMM);
 		}
 
-		//printf("size buf %d\n",sizeData);
+		/* Allocating data buffer */
 		data = (double*) calloc(sizeData, sizeof(double));
+
 		if (!data) {
-			printf("Cannot allocate memory to data buffer");
+			perror("Cannot allocate memory to data buffer");
 			MPI_Abort(MPI_COMM_WORLD,1);
 		}
 		
+		/* Reading each data variable */
 		for(int i = 0; i<sizeData;i++){
 			if(!fscanf(filePtr, "%lf", data+i)){
 				perror("Cannot read data\n");
 				MPI_Abort(MPI_COMM_WORLD, MPI_ERR_COMM);
 			}
-			//printf("the number %d is -> %f\n",i+1,data[i]);
 		}
 
 		fclose(filePtr);
 
-		MPI_Send(&sizeData, 1, MPI_INT, SLAVE_PROC, 0, MPI_COMM_WORLD);
+		MPI_Send(&sizeData, 1, MPI_INT, SLAVE_PROC, 0, MPI_COMM_WORLD); // Sending the amount of data to the other process
 
-		MPI_Send(data, sizeData, MPI_DOUBLE, SLAVE_PROC, 0, MPI_COMM_WORLD);
+		MPI_Send(data, sizeData, MPI_DOUBLE, SLAVE_PROC, 0, MPI_COMM_WORLD); // Sending the whole data buffer
 
-		res = calculateWithThreads(data, atoi(argv[1]), numProcs, pid, sizeData);
-	
-
-		MPI_Recv(data, sizeData, MPI_DOUBLE, SLAVE_PROC, MPI_ANY_TAG, MPI_COMM_WORLD,
-				&status);
-
-		printf("process pid=%d with result array:\n",pid);
-		for(int i =0; i<sizeData; i++){
-			printf("process %d with pos: %d, val->%f\n",pid,i,res[i]);
-		}
-
-		double sum = 0;
-		for (int i = 0; i < sizeData; i++)
-			sum += res[i] + data[i];
-
-		printf("The total sum is:%f", sum);
 	} else {
 
-		MPI_Recv(&sizeData, 1, MPI_INT, MASTER_PROC, MPI_ANY_TAG, MPI_COMM_WORLD,&status);
+		MPI_Recv(&sizeData, 1, MPI_INT, MASTER_PROC, MPI_ANY_TAG, MPI_COMM_WORLD,&status); // Recieving the amount of data to the other process
 
+		/* Allocating data buffer */
 		data = (double*) calloc(sizeData, sizeof(double));
 		if (!data) {
 			perror("Cannot allocate memory to data buffer");
 			MPI_Abort(MPI_COMM_WORLD,1);
 		}
 
-		MPI_Recv(data, sizeData, MPI_DOUBLE, MASTER_PROC, MPI_ANY_TAG, MPI_COMM_WORLD,&status);
-
-		res = calculateWithThreads(data, atoi(argv[1]), numProcs, pid, sizeData);
-
-		printf("process pid=%d with result array:\n",pid);
-		for(int i =0; i<sizeData; i++){
-			printf("process %d with pos: %d, val->%f\n",pid,i,res[i]);
-		}
-
-		MPI_Send(res, sizeData, MPI_DOUBLE, MASTER_PROC, 0, MPI_COMM_WORLD);
-
-
+		MPI_Recv(data, sizeData, MPI_DOUBLE, MASTER_PROC, MPI_ANY_TAG, MPI_COMM_WORLD,&status); // Recieving the whole data buffer
 	}
+
+	/*Calculating the data by the helper method using OpenMP threads*/
+	res = calculateWithThreads(data, atoi(argv[1]), numProcs, pid, sizeData);
+
+	/*Summing the results of each process*/
+	for (int i = 0; i < sizeData; i++)
+		sum += res[i];
+	
+	if(!pid){
+		double tempSum = 0;
+		MPI_Recv(&tempSum, 1, MPI_DOUBLE, SLAVE_PROC, MPI_ANY_TAG, MPI_COMM_WORLD, //Recieving the sum from the other process
+				&status);
+		sum+=tempSum;
+		printf("The total sum is:%f\n", sum);
+		endTime = MPI_Wtime(); // End time
+		printf("The total time is %f seconds\n", endTime-startTime);
+	}
+	else{
+		MPI_Send(&sum, 1, MPI_DOUBLE, MASTER_PROC, 0, MPI_COMM_WORLD); //Sending the sum from the master process
+	}
+
 	free(res);
 	free(data);
 	MPI_Finalize();
