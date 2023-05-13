@@ -2,7 +2,7 @@
  ============================================================================
  Name        : main.c
  Author      : Shoval Shabi 
- ID    		 : 208383885
+ ID          : 208383885
  Description : A program that calcultes heavy function using OpenMP and MPI
  ============================================================================
  */
