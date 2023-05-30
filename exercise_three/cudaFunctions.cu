@@ -2,6 +2,8 @@
 #include <helper_cuda.h>
 #include "myProto.h"
 
+#define THREADS_PER_BLOCK 20
+
 __global__  void incrementByOne(int *arr, int numElements) {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -11,11 +13,11 @@ __global__  void incrementByOne(int *arr, int numElements) {
 }
 
 
-int computeOnGPU(int *data, int numElements) {
+int computeOnGPU(int *data, int* histValues, int maxValue, int numThreads) {
     // Error code to check return values for CUDA calls
     cudaError_t err = cudaSuccess;
 
-    size_t size = numElements * sizeof(float);
+    size_t size = maxValue * sizeof(int);
   
 
     // Allocate memory on GPU to copy the data from the host
@@ -35,8 +37,8 @@ int computeOnGPU(int *data, int numElements) {
 
 
     // Launch the Kernel
-    int threadsPerBlock = 256;
-    int blocksPerGrid =(numElements + threadsPerBlock - 1) / threadsPerBlock;
+    int threadsPerBlock = THREADS_PER_BLOCK;
+    int blocksPerGrid =(maxValue + threadsPerBlock - 1) / threadsPerBlock;
     incrementByOne<<<blocksPerGrid, threadsPerBlock>>>(d_A, numElements);
     err = cudaGetLastError();
     if (err != cudaSuccess) {
