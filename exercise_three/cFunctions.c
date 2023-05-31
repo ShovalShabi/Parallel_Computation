@@ -1,7 +1,16 @@
+/**
+ * @file myProto.c
+ * @brief Functions for histogram calculation and testing
+ */
+
 #include "myProto.h"
 #include <mpi.h>
 
-
+/**
+ * @brief Test function to compare calculated histogram with locally computed histogram
+ * @param data Array of data elements
+ * @param calculatedHist Array of calculated histogram values
+ */
 void test(int *data, int* calculatedHist) {
     int localHist[RANGE] ={0};
 
@@ -17,49 +26,40 @@ void test(int *data, int* calculatedHist) {
     printf("The test passed successfully\n"); 
 }
 
-
-/*
-Simple MPI+OpenMP+CUDA Integration example
-Initially the array of size 4*PART is known for the process 0.
-It sends the half of the array to the process 1.
-Both processes start to increment members of thier members by 1 - partially with OpenMP, partially with CUDA
-The results is send from the process 1 to the process 0, which perform the test to verify that the integration worked properly
-*/
+/**
+ * @brief Generates an array of random values
+ * @return Pointer to the array of random values
+ */
 int* randomValues() {
-	/*Allocating data buffer*/
+	/* Allocating data buffer */
     int *data = (int*) calloc(DATA_SIZE, sizeof(int));
     if (!data) {
         perror("Cannot allocate memory to result buffer");
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
-    /* This creates a team of threads, each thread has own copy of variables  */
+    /* This creates a team of threads, each thread has its own copy of variables */
 #pragma omp parallel
     {
 #pragma omp for
-		/* The data is calculated bu offsets assuming there is two processes and the current process has id of 0,
-		** it will calculate data[0] data[2] data[4] and so on
-		*/
         for (int i = 0; i < DATA_SIZE; i++)
             data[i] = rand() % RANGE;
     }
     return data;
 }
 
-
-/*
-
-*/
+/**
+ * @brief Sums the histogram values calculated by each process
+ * @param hist Array of histogram values
+ * @param slaveHist Array of histogram values from the slave process
+ * @return Pointer to the updated histogram array
+ */
 int* sumValues(int* hist, int* slaveHist) {
-    /* This creates a team of threads, each thread has own copy of variables  */
+    /* This creates a team of threads, each thread has its own copy of variables */
 #pragma omp parallel
     {
 #pragma omp for
-		/* The data is calculated bu offsets assuming there is two processes and the current process has id of 0,
-		** it will calculate data[0] data[2] data[4] and so on
-		*/
         for (int i = 0; i < RANGE; i++)
             hist[i] +=  slaveHist[i];
     }
     return hist;
 }
- 
