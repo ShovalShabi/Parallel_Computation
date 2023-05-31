@@ -6,7 +6,7 @@ build:
 	
 
 clean:
-	rm -f *.o ./mpiCudaOpemMP
+	rm -f *.o ./mpiCudaOpemMP *.btr
 
 run:
 	mpiexec -np 2 ./mpiCudaOpemMP

@@ -1,8 +1,8 @@
 #pragma once
-#include <mpi.h>
 #include <stdio.h>
 #include <omp.h>
 #include <stdlib.h>
+#include <time.h>
 
 #define DATA_SIZE 1000000
 #define SLAVE_PROC 1

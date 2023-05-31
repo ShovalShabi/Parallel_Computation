@@ -1,15 +1,14 @@
 #include "myProto.h"
-#include <stdio.h>
+#include <mpi.h>
 
-#define MAX_VALUE 256
 
 void test(int *data, int* calculatedHist) {
-    int localHist[MAX_VALUE] ={0};
+    int localHist[RANGE] ={0};
 
     for (int i = 0; i < DATA_SIZE; i++)
         localHist[data[i]]++;
     
-    for (int i = 0; i < MAX_VALUE; i++){
+    for (int i = 0; i < RANGE; i++){
         if (calculatedHist[i] != localHist[i]) {
            printf("Wrong Calculations - Failure of the test at data[%d]\n", i);
            return;
@@ -30,11 +29,10 @@ int* randomValues() {
 	/*Allocating data buffer*/
     int *data = (int*) calloc(DATA_SIZE, sizeof(int));
     if (!data) {
-        perroer("Cannot allocate memory to result buffer");
+        perror("Cannot allocate memory to result buffer");
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
     /* This creates a team of threads, each thread has own copy of variables  */
-	omp_set_num_threads(NUM_THREADS);
 #pragma omp parallel
     {
 #pragma omp for
@@ -42,7 +40,7 @@ int* randomValues() {
 		** it will calculate data[0] data[2] data[4] and so on
 		*/
         for (int i = 0; i < DATA_SIZE; i++)
-            data[i] = rand() % MAX_VALUE;
+            data[i] = rand() % RANGE;
     }
     return data;
 }
@@ -53,7 +51,6 @@ int* randomValues() {
 */
 int* sumValues(int* hist, int* slaveHist) {
     /* This creates a team of threads, each thread has own copy of variables  */
-	omp_set_num_threads(NUM_THREADS);
 #pragma omp parallel
     {
 #pragma omp for
