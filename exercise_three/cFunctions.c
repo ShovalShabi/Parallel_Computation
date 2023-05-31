@@ -57,7 +57,7 @@ int* sumValues(int* hist, int* slaveHist) {
 		/* The data is calculated bu offsets assuming there is two processes and the current process has id of 0,
 		** it will calculate data[0] data[2] data[4] and so on
 		*/
-        for (int i = 0; i < DATA_SIZE; i++)
+        for (int i = 0; i < RANGE; i++)
             hist[i] +=  slaveHist[i];
     }
     return hist;

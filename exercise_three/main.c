@@ -30,8 +30,8 @@ int main(int argc, char *argv[]) {
       MPI_Recv(data, DATA_SIZE/2, MPI_INT, MASTER_PROC, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
    }
 
-   int *histValues = (int*) calloc(DATA_SIZE, sizeof(int));
-   if (!data) {
+   int *histValues = (int*) calloc(RANGE, sizeof(int));
+   if (!histValues) {
       perror("Cannot allocate memory to result buffer");
       MPI_Abort(MPI_COMM_WORLD, __LINE__);
    }
@@ -40,19 +40,21 @@ int main(int argc, char *argv[]) {
 
    // Collect the result on one of processes
    if (rank == 0){
-      int* histFromSlave;
+      int* histFromSlave = (int*) calloc(RANGE ,sizeof(int));
+      if (!histFromSlave) {
+         perror("Cannot allocate memory to result buffer");
+         MPI_Abort(MPI_COMM_WORLD, __LINE__);
+      }
+
       MPI_Recv(histFromSlave, RANGE, MPI_INT, SLAVE_PROC, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
       sumValues(histValues,histFromSlave);
       test(data, histValues);
    }
-   else 
+   else
       MPI_Send(histValues, RANGE, MPI_INT, MASTER_PROC, 0, MPI_COMM_WORLD);
 
    free(histValues);
    free(data);
    MPI_Finalize();
-
    return 0;
 }
-
-
