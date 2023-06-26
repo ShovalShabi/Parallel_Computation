@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
 
       buildTcounrArr(actualTs,tCount); //Creating the array of the total Ts that needed to be calculted
 
-      for (int i =numT , proc=1 ; i < tCount ,proc < size; i+=chunck, proc++){
+      for (int i =numT , proc=1; i < tCount ,proc < size; i+=chunck, proc++){
          MPI_Send(&actualTs[i],chunck,MPI_DOUBLE,proc,0,MPI_COMM_WORLD); //Sending the actual Ts that needed to be calculated
       }
    }
