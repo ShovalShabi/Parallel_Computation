@@ -17,7 +17,8 @@ int main(int argc, char *argv[]) {
 
    Point* pointArr;
    int numPoints, tCount, proximity;
-   double radius;
+   double radius;  //The recived radius
+   double* actualTs; //The actual values of the Ts
    int** tidsAndPids;
    int** allTidsAndPids;
 
@@ -69,6 +70,7 @@ int main(int argc, char *argv[]) {
    MPI_Bcast(pointArr, numPoints, MPI_POINT, MASTER_PROC, MPI_COMM_WORLD);
 
    //The master creating the total array that holds all the tids and their Proximty Criteria points, will recive later by Gather 
+   int chunck = tCount/size;
    if (rank==0){
       numT = tCount/size + tCount % size;
       allTidsAndPids = (int**) malloc(sizeof(int*) * tCount);
@@ -77,9 +79,17 @@ int main(int argc, char *argv[]) {
          perror("Allocating memory has been failed\n");
          MPI_Abort(MPI_COMM_WORLD, __LINE__);
       }
+
+      buildTcounrArr(actualTs,tCount); //Creating the array of the total Ts that needed to be calculted
+
+      for (int i =numT , proc=1 ; i < tCount ,proc < size; i+=chunck, proc++){
+         MPI_Send(&actualTs[i],chunck,MPI_DOUBLE,proc,0,MPI_COMM_WORLD); //Sending the actual Ts that needed to be calculated
+      }
    }
    else{
-      numT = tCount/size;
+      numT = chunck;
+
+      MPI_Recv(actualTs,numT,MPI_DOUBLE,proc,MPI_ANY_TAG,MPI_COMM_WORLD,&status);  //Recieving the actual Ts that needed to be calculated
    }
 
    tidsAndPids = (int**) malloc(sizeof(int*) * numT);
@@ -91,25 +101,20 @@ int main(int argc, char *argv[]) {
 
    // The sub array that contains the pids of that apply Proximity Criteria under specific tid which is tidsAndPids[i]
    for (int i = 0; i < numT; i++){
-      tidsAndPids[i] = (int*) malloc(sizeof(int) * proximity);
-
-      if(!tidsAndPids[i]){
-         perror("Allocating memory has been failed\n");
-         MPI_Abort(MPI_COMM_WORLD, __LINE__);
-      }
+      int prox[CONSTRAINT];
+      tidsAndPids[i] = prox;
    }
    
    // Each process calculate its task on the GPU
-   //-->computeOnGPU(data, DATA_SIZE/2, histValues);
+   computeOnGPU(pointArr, numPoints, actualTs, tidsAndPids , numT);
 
    // Collect the result from slave process
    if (rank == 0){
-      int expected = tCount/size;
-
       allTidsAndPids[0] = *tidsAndPids; //The Criteria Points of the specified tids
 
       for (int i = 1; i < size; i++){
-         MPI_Recv(allTidsAndPids[i],expected,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&status); //Reciving the other Criteria Points from the slave processes
+         MPI_Recv(tidsAndPids,chunck,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&status); //Reciving the other Criteria Points from the slave processes, the tag is the process that sent it
+         allTidsAndPids[status.MPI_TAG*chunck] = tidsAndPids //Matching the relevant tids and the pid of the Criteria points of each process
       }
 
       //Write to output file here
@@ -118,9 +123,10 @@ int main(int argc, char *argv[]) {
 
       free(allTidsAndPids);  
    }
+
    // Send the data to master process
    else{
-
+      MPI_Send(tidsAndPids,numT,MPI_INT,MASTER_PROC,rank,MPI_COMM_WORLD); //Sending the other Criteria Points from the slave processes, the tag is the process that sent it
    }
 
    MPI_Type_free(&MPI_POINT);
