@@ -10,10 +10,12 @@
 #define CONSTRAINT 3
 #define INPUT_FILE "input.txt"
 
-void test(const Point* pointsArr, int numPoints, int* tOccurences, int tCount);
+// void test(const Point* pointsArr, int numPoints, int* tOccurences, int tCount);
 
 void readFromFile(Point* pointsArr, int* numPoints, int* tCount, int* proximity, double* radius);
 
-int* sumProximityCriteria(const Point* pointsArr, int numPoints, int tCount, int proximity, double radius);
+void buildTcounrArr(double* tArr, int tCount);
+
+// int* sumProximityCriteria(const Point* pointsArr, int numPoints, int tCount, int proximity, double radius);
 
 int computeOnGPU(const Point* pointsArr,  int numPoints, int tCount, int proximity, double radius);
