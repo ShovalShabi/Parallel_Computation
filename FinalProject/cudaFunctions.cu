@@ -2,75 +2,104 @@
 #include <helper_cuda.h>
 #include "myProto.h"
 
-/**
- * @brief CUDA kernel function to build histogram
- * @param data Input data array
- * @param dataSize Size of the input data array
- * @param hist Output histogram array
- */
-__global__ void buildHist(int* data, int dataSize, int* hist) {
-    int index = blockIdx.x * blockDim.x + threadIdx.x;
-    int chunck = (dataSize / (NUM_BLOCKS * NUM_THREADS));
-    
-    for (int i = index * chunck; i < index * chunck + chunck; i++) {
-        atomicAdd(&hist[data[i]], 1);
+
+__device__ double calculateDistance(const Point p1,const Point p2, double t){
+    double xP1, yP1, xP2, yP2;
+
+    xP1 = ((p1.x2 - p1.x1) / 2 ) * sin (t*M_PI /2) + (p1.x2 + p1.x1) / 2; 
+    yP1 = p1.a*xP1 + p1.b;
+
+    xP2 = ((p2.x2 - p2.x1) / 2 ) * sin (t*M_PI /2) + (p2.x2 + p2.x1) / 2; 
+    yP2 = p2.a*xP2 + p2.b;
+
+
+    return sqrt(pow(xP2-xP1,2) + pow(yP2-yP1,2));
+}
+
+
+__global__ void findProximityCriteria(Point* pointsArrDevice, int nCount, double* actualTsDevice, int** tidAndPidsDevice, int tCount, int proximity, double distance) {
+    int threadId = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (threadId < nCount * tCount){
+        int pid = threadId % nCount;  // The ID of the point
+        int tid = threadId / nCount;  // The ID of the current t value
+
+        int count = 0;
+        for (int i = 0; i < nCount && i != pid; i++){
+            double dist = calculateDistance(pointsArrDevice[pid], pointsArrDevice[i], actualTsDevice[tid]);
+
+            if (dist <= distance)
+                count++;
+            
+            if (count == proximity)
+                break;  
+        }
+
+        if (count == proximity){
+            for (int j = 0; j < CONSTRAINT; j++)
+                if(!tidAndPidsDevice[tid][j])
+                    atomicExch(&tidAndPidsDevice[tid][j],pid);
+        }
     }
 }
 
-/**
- * @brief CUDA kernel function to initialize histogram
- * @param h Histogram array to initialize
- */
-__global__ void initHist(int* h) {
-    int index = threadIdx.x;
-    h[index] = 0;
-}
 
-/**
- * @brief Function to perform histogram calculation on the GPU
- * @param data Input data array
- * @param dataSize Size of the input data array
- * @param histValues Output histogram array
- * @return 0 on success
- */
-int computeOnGPU(int* data, int dataSize, int* histValues) {
+
+int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAndPids , int numT, int proximity, double distance) {
     // Error code to check return values for CUDA calls
     cudaError_t err = cudaSuccess;
-    size_t size = dataSize * sizeof(int);
+    size_t pitch;
 
-    // Allocate memory on device for overall data buffer
-    int* device_data = NULL;
-    err = cudaMalloc((void**)&device_data, size);
+    // Allocate memory on device for overall points buffer on device
+    Point* pointsArrDevice = NULL;
+    err = cudaMalloc((void**)&pointsArrDevice, numPoints*sizeof(Point));
     if (err != cudaSuccess) {
         fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
         exit(EXIT_FAILURE);
     }
 
-    // Allocate memory on device for histogram buffer
-    int* device_hist = NULL;
-    err = cudaMalloc((void**)&device_hist, RANGE * sizeof(int));
+    // Copying memory on device for overall points buffer on device
+    err = cudaMemcpy(pointsArrDevice, pointArr, numPoints, cudaMemcpyHostToDevice);
     if (err != cudaSuccess) {
         fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
         exit(EXIT_FAILURE);
     }
 
-    // Copy the input data to the device
-    err = cudaMemcpy(device_data, data, size, cudaMemcpyHostToDevice);
+    // Allocate memory on device for actual t values buffer on device
+    double* actualTsDevice = NULL;
+    err = cudaMalloc((void**) &actualTsDevice, numT*sizeof(double));
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
+        exit(EXIT_FAILURE);
+    }
+    
+    // Copying memory on device for actual t values buffer on device
+    err = cudaMemcpy(actualTsDevice, actualTs, numT, cudaMemcpyHostToDevice);
     if (err != cudaSuccess) {
         fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
         exit(EXIT_FAILURE);
     }
 
-    // Initialize histogram on the device, one block and threads as the amount of RANGE
-    initHist<<<1, RANGE>>>(device_hist);
-    err = cudaGetLastError();
+    // Allocate the matching tids and pids to two dimensional array to the device
+    int** tidsAndPidsDevice = NULL;
+    err = cudaMallocPitch((void**) tidsAndPidsDevice, &pitch, numT * sizeof(int), CONSTRAINT);
     if (err != cudaSuccess) {
         fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
         exit(EXIT_FAILURE);
     }
 
-    // Build the histogram on the device, blocks as the amount of NUM_BLOCKS and threads as the amount of RANGE
-    buildHist<<<NUM_BLOCKS, NUM_THREADS>>>(device_data, dataSize, device_hist);
+    // Copying the matching tids and pids to two dimensional array to the device
+    err = cudaMemcpy2D(tidsAndPidsDevice, pitch, tidsAndPids, numT * sizeof(int), numT * sizeof(int) , CONSTRAINT, cudaMemcpyHostToDevice);
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
+        exit(EXIT_FAILURE);
+    }
+
+    int numBlocks = (int) ceil( numPoints * numT / THREADS_PER_BLOCK);
+
+    // Finding all the Proximity Criteria of each distinct t value
+    findProximityCriteria<<<numBlocks, THREADS_PER_BLOCK>>>(pointsArrDevice, numPoints, actualTsDevice, tidsAndPidsDevice, numT, proximity, distance);
+
     err = cudaGetLastError();
     if (err != cudaSuccess) {
         fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
@@ -81,21 +110,28 @@ int computeOnGPU(int* data, int dataSize, int* histValues) {
     cudaDeviceSynchronize();
 
     // Copy the final histogram from the device to the host
-    err = cudaMemcpy(histValues, device_hist, sizeof(int) * RANGE, cudaMemcpyDeviceToHost);
+    err = cudaMemcpy2D(tidsAndPids, numT * sizeof(int), tidsAndPidsDevice, pitch, numT * sizeof(int), CONSTRAINT, cudaMemcpyDeviceToHost);
     if (err != cudaSuccess) {
         fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
         exit(EXIT_FAILURE);
     }
 
     // Free device global memory
-    err = cudaFree(device_data);
+    err = cudaFree(pointsArrDevice);
     if (err != cudaSuccess) {
         fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
         exit(EXIT_FAILURE);
     }
 
     // Free device global memory
-    err = cudaFree(device_hist);
+    err = cudaFree(actualTsDevice);
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
+        exit(EXIT_FAILURE);
+    }
+
+    // Free device global memory
+    err = cudaFree(tidsAndPidsDevice);
     if (err != cudaSuccess) {
         fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
         exit(EXIT_FAILURE);

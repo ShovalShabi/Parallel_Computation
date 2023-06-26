@@ -40,7 +40,3 @@ void buildTcounrArr(double* tArr, int tCount){
     }
     
 }
-
-// int* sumProximityCriteria(Point* pointsArr, int numPoints, int* tOccurences, int tCount){
-//     return 0;
-// }

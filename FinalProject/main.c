@@ -1,6 +1,5 @@
 #include <stddef.h> 
 #include "myProto.h"
-#include "point.h"
 #include "mpi.h"
 
 /**
@@ -17,7 +16,7 @@ int main(int argc, char *argv[]) {
 
    Point* pointArr;
    int numPoints, tCount, proximity;
-   double radius;  //The recived radius
+   double distance;  //The recived distnace
    double* actualTs; //The actual values of the Ts
    int** tidsAndPids;
    int** allTidsAndPids;
@@ -36,7 +35,7 @@ int main(int argc, char *argv[]) {
    
    // Divide the tasks between both processes
    if (rank == 0)
-      readFromFile(pointArr,&numPoints,&tCount,&proximity,&radius);
+      readFromFile(pointArr,&numPoints,&tCount,&proximity,&distance);
 
    // Broadcasting the total number of processes
    MPI_Bcast(&numPoints, 1, MPI_INT, MASTER_PROC, MPI_COMM_WORLD);
@@ -48,7 +47,7 @@ int main(int argc, char *argv[]) {
    MPI_Bcast(&proximity, 1, MPI_INT, MASTER_PROC, MPI_COMM_WORLD);
 
    // Broadcasting the radius
-   MPI_Bcast(&radius, 1, MPI_DOUBLE, MASTER_PROC, MPI_COMM_WORLD);
+   MPI_Bcast(&distance, 1, MPI_DOUBLE, MASTER_PROC, MPI_COMM_WORLD);
 
 
    // Define MPI_POINT datatypes
@@ -89,7 +88,7 @@ int main(int argc, char *argv[]) {
    else{
       numT = chunck;
 
-      MPI_Recv(actualTs,numT,MPI_DOUBLE,proc,MPI_ANY_TAG,MPI_COMM_WORLD,&status);  //Recieving the actual Ts that needed to be calculated
+      MPI_Recv(actualTs,numT,MPI_DOUBLE,MASTER_PROC,MPI_ANY_TAG,MPI_COMM_WORLD,&status);  //Recieving the actual Ts that needed to be calculated
    }
 
    tidsAndPids = (int**) malloc(sizeof(int*) * numT);
@@ -101,20 +100,20 @@ int main(int argc, char *argv[]) {
 
    // The sub array that contains the pids of that apply Proximity Criteria under specific tid which is tidsAndPids[i]
    for (int i = 0; i < numT; i++){
-      int prox[CONSTRAINT];
+      int prox[CONSTRAINT] = {-1,-1,-1};
       tidsAndPids[i] = prox;
    }
    
    // Each process calculate its task on the GPU
-   computeOnGPU(pointArr, numPoints, actualTs, tidsAndPids , numT);
+   computeOnGPU(pointArr, numPoints, actualTs, tidsAndPids , numT, proximity, distance);
 
    // Collect the result from slave process
    if (rank == 0){
       allTidsAndPids[0] = *tidsAndPids; //The Criteria Points of the specified tids
 
       for (int i = 1; i < size; i++){
-         MPI_Recv(tidsAndPids,chunck,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&status); //Reciving the other Criteria Points from the slave processes, the tag is the process that sent it
-         allTidsAndPids[status.MPI_TAG*chunck] = tidsAndPids //Matching the relevant tids and the pid of the Criteria points of each process
+         MPI_Recv(tidsAndPids,chunck,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&status); //Reciving the other Criteria Points from the slave processes, the tag is the rank of the process that sent it
+         allTidsAndPids[status.MPI_TAG*chunck] = *tidsAndPids; //Matching the relevant tids and the pid of the Criteria points of each process
       }
 
       //Write to output file here
@@ -126,7 +125,7 @@ int main(int argc, char *argv[]) {
 
    // Send the data to master process
    else{
-      MPI_Send(tidsAndPids,numT,MPI_INT,MASTER_PROC,rank,MPI_COMM_WORLD); //Sending the other Criteria Points from the slave processes, the tag is the process that sent it
+      MPI_Send(tidsAndPids,numT,MPI_INT,MASTER_PROC,rank,MPI_COMM_WORLD); //Sending the other Criteria Points from the slave processes, the tag is the rank of process that sent it
    }
 
    MPI_Type_free(&MPI_POINT);
