@@ -20,6 +20,11 @@ void readFromFile(Point* pointsArr, int* numPoints, int* tCount, int* proximity,
 
     pointsArr = (Point*) calloc(*numPoints,sizeof(Point));
 
+    if(!pointsArr){
+        perror("Allocating memory has been failed\n");
+        MPI_Abort(MPI_COMM_WORLD, __LINE__);
+    }
+
     // Read the N lines for point parameters
     for (int i = 0; i < *numPoints; i++) {
         fscanf(file, "%d %lf %lf %lf %lf", &pointsArr[i].id, &pointsArr[i].x1, &pointsArr[i].x2, &pointsArr[i].a, &pointsArr[i].b);

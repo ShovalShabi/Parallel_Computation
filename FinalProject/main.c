@@ -53,39 +53,54 @@ int main(int argc, char *argv[]) {
 
    // Define MPI_POINT datatypes
    MPI_Datatype MPI_POINT;
-   int blocklengths[5] = {1, 1, 1, 1, 1};
-   MPI_Aint offsets[5];
-   MPI_Datatype types[5] = {MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_INT};
-
-   offsets[0] = offsetof(Point, x1);
-   offsets[1] = offsetof(Point, x2);
-   offsets[2] = offsetof(Point, a);
-   offsets[3] = offsetof(Point, b);
-   offsets[4] = offsetof(Point, id);
-
-   MPI_Type_create_struct(numPoints, blocklengths, offsets, types, &MPI_POINT);
+   MPI_Type_contiguous(sizeof(Point), MPI_BYTE, &MPI_POINT);
    MPI_Type_commit(&MPI_POINT);
+   // MPI_Datatype MPI_POINT;
+   // int blocklengths[5] = {1, 1, 1, 1, 1};
+   // MPI_Aint offsets[5];
+   // MPI_Datatype types[5] = {MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_INT};
+
+   // offsets[0] = offsetof(Point, x1);
+   // offsets[1] = offsetof(Point, x2);
+   // offsets[2] = offsetof(Point, a);
+   // offsets[3] = offsetof(Point, b);
+   // offsets[4] = offsetof(Point, id);
+
+   // MPI_Type_create_struct(numPoints, blocklengths, offsets, types, &MPI_POINT);
+   // MPI_Type_commit(&MPI_POINT);
 
    actualTs = (double*) malloc(sizeof(double) * tCount);
-   
-   if (!rank){
-      buildTcountArr(actualTs,tCount); //Creating the array of the total Ts that needed to be calculted
-   }
-   //Alocating memory for the slave processes, is needed to acknowledge the whole buffer
-   else {
-      pointArr = (Point*) malloc(sizeof(Point) * numPoints);
-   }
 
-   if(!pointArr || ! actualTs){
+   if(!actualTs){
       perror("Allocating memory has been failed\n");
       MPI_Abort(MPI_COMM_WORLD, __LINE__);
    }
 
-   // Broadcasting all points
-   MPI_Bcast(pointArr, numPoints, MPI_POINT, MASTER_PROC, MPI_COMM_WORLD);
+   if (!rank){
+      buildTcountArr(actualTs,tCount); //Creating the array of the total Ts that needed to be calculted
+      printf("here\n");
+      for (int i = 0; i < numPoints; i++)
+      {
+         printf("%d\n",pointArr[i].id);
+      }
+      
+   }
+   //Alocating memory for the slave processes, is needed to acknowledge the whole buffer
+   else {
+      pointArr = (Point*) malloc(sizeof(Point) * numPoints);
+      if(!pointArr){
+         perror("Allocating memory has been failed\n");
+         MPI_Abort(MPI_COMM_WORLD, __LINE__);
+      }
+   }
 
    // Broadcasting all the actual t values
    MPI_Bcast(actualTs, tCount, MPI_DOUBLE, MASTER_PROC, MPI_COMM_WORLD);
+
+   // Broadcasting all points
+   MPI_Bcast(pointArr, numPoints, MPI_POINT, MASTER_PROC, MPI_COMM_WORLD);
+
+
 
    //The master creating the total array that holds all the tids and their Proximty Criteria points, will be recieved later
    int chunck = tCount/size;
@@ -132,10 +147,11 @@ int main(int argc, char *argv[]) {
       allTidsAndPids = tidsAndPids; //The Criteria Points of the specified tids
 
       for (int i = 1; i < size; i++){
-         MPI_Recv(tidsAndPids,chunck,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&status); //Reciving the other Criteria Points from the slave processes, the tag is the rank of the process that sent it
-         allTidsAndPids[status.MPI_TAG*chunck] = tidsAndPids; //Matching the relevant tids and the pid of the Criteria points of each process
+         //Matching the relevant tids and the pid of the Criteria points of each process
+         MPI_Recv(allTidsAndPids + status.MPI_TAG*chunck,chunck,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&status); //Reciving the other Criteria Points from the slave processes, the tag is the rank of the process that sent it
       }
 
+      printf("finished\n");
       //Write to output file here
 
       //test here
@@ -145,7 +161,7 @@ int main(int argc, char *argv[]) {
 
    // Send the data to master process
    else{
-      MPI_Send(tidsAndPids,numT,MPI_INT,MASTER_PROC,rank,MPI_COMM_WORLD); //Sending the other Criteria Points from the slave processes, the tag is the rank of process that sent it
+      MPI_Send(tidsAndPids+minTIndex,numT,MPI_INT,MASTER_PROC,rank,MPI_COMM_WORLD); //Sending the other Criteria Points from the slave processes, the tag is the rank of process that sent it
    }
 
    MPI_Type_free(&MPI_POINT);
