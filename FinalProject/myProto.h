@@ -26,6 +26,6 @@ void readFromFile(Point* pointsArr, int* numPoints, int* tCount, int* proximity,
 
 void writeToFile(int** alltidAndPids, int tCount, double* actualTs);
 
-void buildTcounrArr(double* tArr, int tCount);
+void buildTcountArr(double* tArr, int tCount);
 
-int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAndPids , int numT, int proximity, double distance);
+int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAndPids , int numT, int proximity, double distance, int minTIndex, int maxTIndex);

@@ -33,7 +33,7 @@ void readFromFile(Point* pointsArr, int* numPoints, int* tCount, int* proximity,
     fclose(file);
 }
 
-void buildTcounrArr(double* tArr, int tCount){
+void buildTcountArr(double* tArr, int tCount){
     #pragma omp parallel for shared(tArr)
     for (int i = 0; i < tCount; i++){
         tArr[i] = 2 * i /tCount -1;

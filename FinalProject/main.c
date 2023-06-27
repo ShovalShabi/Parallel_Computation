@@ -16,6 +16,7 @@ int main(int argc, char *argv[]) {
 
    Point* pointArr;
    int numPoints, tCount, proximity;
+   int minTIndex, maxTIndex; //The start index and index to each process to check t values
    double distance;  //The recived distnace
    double* actualTs; //The actual values of the Ts
    int** tidsAndPids;
@@ -65,10 +66,28 @@ int main(int argc, char *argv[]) {
    MPI_Type_create_struct(numPoints, blocklengths, offsets, types, &MPI_POINT);
    MPI_Type_commit(&MPI_POINT);
 
+   actualTs = (double*) malloc(sizeof(double) * tCount);
+   
+   if (!rank){
+      buildTcountArr(actualTs,tCount); //Creating the array of the total Ts that needed to be calculted
+   }
+   //Alocating memory for the slave processes, is needed to acknowledge the whole buffer
+   else {
+      pointArr = (Point*) malloc(sizeof(Point) * numPoints);
+   }
+
+   if(!pointArr || ! actualTs){
+      perror("Allocating memory has been failed\n");
+      MPI_Abort(MPI_COMM_WORLD, __LINE__);
+   }
+
    // Broadcasting all points
    MPI_Bcast(pointArr, numPoints, MPI_POINT, MASTER_PROC, MPI_COMM_WORLD);
 
-   //The master creating the total array that holds all the tids and their Proximty Criteria points, will recive later by Gather 
+   // Broadcasting all the actual t values
+   MPI_Bcast(actualTs, tCount, MPI_DOUBLE, MASTER_PROC, MPI_COMM_WORLD);
+
+   //The master creating the total array that holds all the tids and their Proximty Criteria points, will be recieved later
    int chunck = tCount/size;
    if (rank==0){
       numT = tCount/size + tCount % size;
@@ -78,20 +97,21 @@ int main(int argc, char *argv[]) {
          perror("Allocating memory has been failed\n");
          MPI_Abort(MPI_COMM_WORLD, __LINE__);
       }
-
-      buildTcounrArr(actualTs,tCount); //Creating the array of the total Ts that needed to be calculted
-
+      minTIndex = 0;
+      maxTIndex = numT-1;
       for (int i =numT , proc=1; i < tCount ,proc < size; i+=chunck, proc++){
-         MPI_Send(&actualTs[i],chunck,MPI_DOUBLE,proc,0,MPI_COMM_WORLD); //Sending the actual Ts that needed to be calculated
+         MPI_Send(&i,1,MPI_INT,proc,0,MPI_COMM_WORLD); //Sending the minimum index of the actualTValues buffer to the process that need to calculate
+         int maxTemp = i+chunck-1;
+         MPI_Send(&maxTemp,1,MPI_INT,proc,0,MPI_COMM_WORLD); //Sending the maximum index of the actualTValues buffer to the process that need to calculate
       }
    }
    else{
       numT = chunck;
-
-      MPI_Recv(actualTs,numT,MPI_DOUBLE,MASTER_PROC,MPI_ANY_TAG,MPI_COMM_WORLD,&status);  //Recieving the actual Ts that needed to be calculated
+      MPI_Recv(&minTIndex,1,MPI_INT,MASTER_PROC,MPI_ANY_TAG,MPI_COMM_WORLD,&status);  //Recieving the minimum index of the actualTValues buffer to the process that need to calculate
+      MPI_Recv(&maxTIndex,1,MPI_INT,MASTER_PROC,MPI_ANY_TAG,MPI_COMM_WORLD,&status);  //Recieving the maximum index of the actualTValues buffer to the process that need to calculate
    }
 
-   tidsAndPids = (int**) malloc(sizeof(int*) * numT);
+   tidsAndPids = (int**) malloc(sizeof(int*) * tCount);
 
    if(!tidsAndPids){
       perror("Allocating memory has been failed\n");
@@ -105,15 +125,15 @@ int main(int argc, char *argv[]) {
    }
    
    // Each process calculate its task on the GPU
-   computeOnGPU(pointArr, numPoints, actualTs, tidsAndPids , numT, proximity, distance);
+   computeOnGPU(pointArr, numPoints, actualTs, tidsAndPids , numT, proximity, distance, minTIndex, maxTIndex);
 
    // Collect the result from slave process
    if (rank == 0){
-      allTidsAndPids[0] = *tidsAndPids; //The Criteria Points of the specified tids
+      allTidsAndPids = tidsAndPids; //The Criteria Points of the specified tids
 
       for (int i = 1; i < size; i++){
          MPI_Recv(tidsAndPids,chunck,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&status); //Reciving the other Criteria Points from the slave processes, the tag is the rank of the process that sent it
-         allTidsAndPids[status.MPI_TAG*chunck] = *tidsAndPids; //Matching the relevant tids and the pid of the Criteria points of each process
+         allTidsAndPids[status.MPI_TAG*chunck] = tidsAndPids; //Matching the relevant tids and the pid of the Criteria points of each process
       }
 
       //Write to output file here

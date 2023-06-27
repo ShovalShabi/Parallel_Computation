@@ -17,35 +17,38 @@ __device__ double calculateDistance(const Point p1,const Point p2, double t){
 }
 
 
-__global__ void findProximityCriteria(Point* pointsArrDevice, int nCount, double* actualTsDevice, int** tidAndPidsDevice, int tCount, int proximity, double distance) {
+__global__ void findProximityCriteria(Point* pointsArrDevice, int nCount, double* actualTsDevice, int** tidAndPidsDevice, int tCount, int proximity, double distance, int minTIndex, int maxTIndex) {
     int threadId = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (threadId < nCount * tCount){
-        int pid = threadId % nCount;  // The ID of the point
-        int tid = threadId / nCount;  // The ID of the current t value
+        int indexPoint = threadId % nCount;  // The index of the point within the buffer
+        int indexT = threadId / nCount;  // The index of the current t value
 
-        int count = 0;
-        for (int i = 0; i < nCount && i != pid; i++){
-            double dist = calculateDistance(pointsArrDevice[pid], pointsArrDevice[i], actualTsDevice[tid]);
+        //Making sure that the process caclute only the range of t values that assigned to it
+        if ( minTIndex <= indexT <= maxTIndex  ){
+            int count = 0;
+            for (int i = 0; i < nCount && i != indexPoint; i++){
+                double dist = calculateDistance(pointsArrDevice[indexPoint], pointsArrDevice[i], actualTsDevice[indexT]);
 
-            if (dist <= distance)
-                count++;
-            
-            if (count == proximity)
-                break;  
-        }
+                if (dist <= distance)
+                    count++;
+                
+                if (count == proximity)
+                    break;  
+            }
 
-        if (count == proximity){
-            for (int j = 0; j < CONSTRAINT; j++)
-                if(!tidAndPidsDevice[tid][j])
-                    atomicExch(&tidAndPidsDevice[tid][j],pid);
+            if (count == proximity){
+                for (int j = 0; j < CONSTRAINT; j++)
+                    if(!tidAndPidsDevice[indexT][j])
+                        atomicExch(&tidAndPidsDevice[indexT][j],pointsArrDevice[indexPoint].id);
+            }
         }
     }
 }
 
 
 
-int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAndPids , int numT, int proximity, double distance) {
+int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAndPids , int numT, int proximity, double distance, int minTIndex, int maxTIndex) {
     // Error code to check return values for CUDA calls
     cudaError_t err = cudaSuccess;
     size_t pitch;
@@ -98,7 +101,7 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
     int numBlocks = (int) ceil( numPoints * numT / THREADS_PER_BLOCK);
 
     // Finding all the Proximity Criteria of each distinct t value
-    findProximityCriteria<<<numBlocks, THREADS_PER_BLOCK>>>(pointsArrDevice, numPoints, actualTsDevice, tidsAndPidsDevice, numT, proximity, distance);
+    findProximityCriteria<<<numBlocks, THREADS_PER_BLOCK>>>(pointsArrDevice, numPoints, actualTsDevice, tidsAndPidsDevice, numT, proximity, distance, minTIndex, maxTIndex);
 
     err = cudaGetLastError();
     if (err != cudaSuccess) {
