@@ -1,12 +1,10 @@
 #include "myProto.h"
 #include <mpi.h>
 
-// void test(Point* pointsArr, int numPoints, int* tOccurences, int tCount){
 
-// }
-
-void readFromFile(Point* pointsArr, int* numPoints, int* tCount, int* proximity, double* radius){
+Point* readFromFile(int* numPoints, int* tCount, int* proximity, double* radius){
     FILE *file;
+    Point* pointsArr =NULL;
 
     // Open the file for reading
     file = fopen(INPUT_FILE, "r");
@@ -21,7 +19,7 @@ void readFromFile(Point* pointsArr, int* numPoints, int* tCount, int* proximity,
         MPI_Abort(MPI_COMM_WORLD, __LINE__);
         fclose(file);
     }
-    // *tCount++; // Including the last point of tCount
+    *tCount+=1; // Including the last point of tCount
 
     pointsArr = (Point*) malloc((*numPoints)*sizeof(Point));
 
@@ -41,20 +39,23 @@ void readFromFile(Point* pointsArr, int* numPoints, int* tCount, int* proximity,
 
         // Process the read parameters as needed
         // For example, print the values
-        printf("ID: %d, x1: %lf, x2: %lf, a: %lf, b: %lf\n", pointsArr[i].id, pointsArr[i].x1, pointsArr[i].x2, pointsArr[i].a, pointsArr[i].b);
+        // printf("ID: %d, x1: %lf, x2: %lf, a: %lf, b: %lf\n", pointsArr[i].id, pointsArr[i].x1, pointsArr[i].x2, pointsArr[i].a, pointsArr[i].b);
     }
 
     // Close the file
     fclose(file);
+
+    printf("\nRead %s file successfully.\n",INPUT_FILE);
+    return pointsArr;
 }
 
 void buildTcountArr(double* tArr, int tCount){
     #pragma omp parallel for shared(tArr)
-    for (int i = 0; i <= tCount; i++){
+    for (int i = 0; i < tCount; i++){
         tArr[i] = 2 * i / (double)tCount -1;
-        int tid = omp_get_thread_num();
-        printf("Thread %d caclulated t=%lf with t=%d\n",tid,tArr[i],i);
+        // int tid = omp_get_thread_num();
+        // printf("Thread %d caclulated t=%lf with t=%d\n",tid,tArr[i],i);
     }
-    printf("finished caclulate T\n");
+    printf("finished caclulate all t values.\n");
     
 }

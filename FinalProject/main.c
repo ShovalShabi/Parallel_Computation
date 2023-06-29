@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
    
    // Divide the tasks between both processes
    if (rank == 0)
-      readFromFile(pointArr,&numPoints,&tCount,&proximity,&distance);
+      pointArr = readFromFile(&numPoints,&tCount,&proximity,&distance);
 
    // Broadcasting the total number of processes
    MPI_Bcast(&numPoints, 1, MPI_INT, MASTER_PROC, MPI_COMM_WORLD);
@@ -51,8 +51,6 @@ int main(int argc, char *argv[]) {
    MPI_Bcast(&distance, 1, MPI_DOUBLE, MASTER_PROC, MPI_COMM_WORLD);
 
    printf("rank=%d N=%d tCount=%d K=%d, D=%lf\n",rank,numPoints,tCount,proximity,distance);
-   printf("rank=%d, pointsArr=%p\n",rank,pointArr);
-
 
    // Define MPI_POINT datatypes
    MPI_Datatype MPI_POINT;
@@ -68,14 +66,8 @@ int main(int argc, char *argv[]) {
 
    if (!rank){
       buildTcountArr(actualTs,tCount); //Creating the array of the total Ts that needed to be calculted
-      printf("here %p\n",pointArr);
-      for (int i = 0; i < numPoints; i++)
-      {
-         printf("%d\n",pointArr[i].id);
-      }
-      printf("exited");
-      
    }
+
    //Alocating memory for the slave processes, is needed to acknowledge the whole buffer
    else {
       pointArr = (Point*) malloc(sizeof(Point) * numPoints);
@@ -91,6 +83,13 @@ int main(int argc, char *argv[]) {
    // Broadcasting all points
    MPI_Bcast(pointArr, numPoints, MPI_POINT, MASTER_PROC, MPI_COMM_WORLD);
 
+   // for (int i = 0; i < numPoints; i++){
+   //    printf("pointArr[%d]=%d rank=%d\n",i,pointArr[i].id,rank);
+   // }
+
+   // for (int i = 0; i < tCount; i++){
+   //    printf("tArr[%d]=%lf rank=%d\n",i,actualTs[i],rank);
+   // }
 
 
    //The master creating the total array that holds all the tids and their Proximty Criteria points, will be recieved later
@@ -116,7 +115,6 @@ int main(int argc, char *argv[]) {
       MPI_Recv(&minTIndex,1,MPI_INT,MASTER_PROC,MPI_ANY_TAG,MPI_COMM_WORLD,&status);  //Recieving the minimum index of the actualTValues buffer to the process that need to calculate
       MPI_Recv(&maxTIndex,1,MPI_INT,MASTER_PROC,MPI_ANY_TAG,MPI_COMM_WORLD,&status);  //Recieving the maximum index of the actualTValues buffer to the process that need to calculate
    }
-
    tidsAndPids = (int**) malloc(sizeof(int*) * tCount);
 
    if(!tidsAndPids){

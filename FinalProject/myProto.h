@@ -22,9 +22,9 @@ typedef struct {
 
 // void test(const Point* pointsArr, int numPoints, int* tOccurences, int tCount);
 
-void readFromFile(Point* pointsArr, int* numPoints, int* tCount, int* proximity, double* radius);
+Point* readFromFile(int* numPoints, int* tCount, int* proximity, double* radius);
 
-void writeToFile(int** alltidAndPids, int tCount, double* actualTs);
+// void writeToFile(int** alltidAndPids, int tCount, double* actualTs);
 
 void buildTcountArr(double* tArr, int tCount);
 
