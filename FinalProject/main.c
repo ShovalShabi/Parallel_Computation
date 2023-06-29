@@ -14,7 +14,7 @@ int main(int argc, char *argv[]) {
    int numT;
    MPI_Status  status;
 
-   Point* pointArr;
+   Point* pointArr = NULL;
    int numPoints, tCount, proximity;
    int minTIndex, maxTIndex; //The start index and index to each process to check t values
    double distance;  //The recived distnace
@@ -50,24 +50,14 @@ int main(int argc, char *argv[]) {
    // Broadcasting the radius
    MPI_Bcast(&distance, 1, MPI_DOUBLE, MASTER_PROC, MPI_COMM_WORLD);
 
+   printf("rank=%d N=%d tCount=%d K=%d, D=%lf\n",rank,numPoints,tCount,proximity,distance);
+   printf("rank=%d, pointsArr=%p\n",rank,pointArr);
+
 
    // Define MPI_POINT datatypes
    MPI_Datatype MPI_POINT;
    MPI_Type_contiguous(sizeof(Point), MPI_BYTE, &MPI_POINT);
    MPI_Type_commit(&MPI_POINT);
-   // MPI_Datatype MPI_POINT;
-   // int blocklengths[5] = {1, 1, 1, 1, 1};
-   // MPI_Aint offsets[5];
-   // MPI_Datatype types[5] = {MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_INT};
-
-   // offsets[0] = offsetof(Point, x1);
-   // offsets[1] = offsetof(Point, x2);
-   // offsets[2] = offsetof(Point, a);
-   // offsets[3] = offsetof(Point, b);
-   // offsets[4] = offsetof(Point, id);
-
-   // MPI_Type_create_struct(numPoints, blocklengths, offsets, types, &MPI_POINT);
-   // MPI_Type_commit(&MPI_POINT);
 
    actualTs = (double*) malloc(sizeof(double) * tCount);
 
@@ -78,11 +68,12 @@ int main(int argc, char *argv[]) {
 
    if (!rank){
       buildTcountArr(actualTs,tCount); //Creating the array of the total Ts that needed to be calculted
-      printf("here\n");
+      printf("here %p\n",pointArr);
       for (int i = 0; i < numPoints; i++)
       {
          printf("%d\n",pointArr[i].id);
       }
+      printf("exited");
       
    }
    //Alocating memory for the slave processes, is needed to acknowledge the whole buffer
