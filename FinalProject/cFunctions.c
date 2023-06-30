@@ -1,5 +1,5 @@
 #include "myProto.h"
-#include <mpi.h>
+#include "mpi.h"
 
 
 Point* readFromFile(int* numPoints, int* tCount, int* proximity, double* radius){
@@ -39,7 +39,7 @@ Point* readFromFile(int* numPoints, int* tCount, int* proximity, double* radius)
 
         // Process the read parameters as needed
         // For example, print the values
-        // printf("ID: %d, x1: %lf, x2: %lf, a: %lf, b: %lf\n", pointsArr[i].id, pointsArr[i].x1, pointsArr[i].x2, pointsArr[i].a, pointsArr[i].b);
+        printf("ID: %d, x1: %lf, x2: %lf, a: %lf, b: %lf\n", pointsArr[i].id, pointsArr[i].x1, pointsArr[i].x2, pointsArr[i].a, pointsArr[i].b);
     }
 
     // Close the file
