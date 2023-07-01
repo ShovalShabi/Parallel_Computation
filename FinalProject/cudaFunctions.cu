@@ -90,28 +90,25 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
     }
 
     // Allocate the matching tids and pids to two dimensional array to the device
-    int** tidsAndPidsDevice = NULL;
-    err = cudaMallocPitch((void**) tidsAndPidsDevice, &pitch, tCount * sizeof(int), CONSTRAINT);
+    int* tidsAndPidsDevice = NULL;
+    err = cudaMallocPitch((void**) &tidsAndPidsDevice, &pitch, tCount * sizeof(int), CONSTRAINT * sizeof(int));
     if (err != cudaSuccess) {
         fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
         exit(EXIT_FAILURE);
     }
 
     // Copying the matching tids and pids to two dimensional array to the device
-    err = cudaMemcpy2D(tidsAndPidsDevice, pitch, tidsAndPids, tCount * sizeof(int), tCount * sizeof(int) , CONSTRAINT, cudaMemcpyHostToDevice);
+    err = cudaMemcpy2D(tidsAndPidsDevice, pitch, tidsAndPids, tCount * sizeof(int), tCount * sizeof(int) , CONSTRAINT , cudaMemcpyHostToDevice);
     if (err != cudaSuccess) {
         fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
         exit(EXIT_FAILURE);
     }
 
-    intializeTidsAndPids <<<1, tCount * CONSTRAINT>>>((int*) tidsAndPids);
-
-    for (int i = 0; i < tCount; i++)
+    intializeTidsAndPids <<<1, tCount * CONSTRAINT>>>(tidsAndPidsDevice);
+    printf("here");
+    for (int i = 0; i < tCount*CONSTRAINT; i++)
     {
-        for (int j = 0; j < CONSTRAINT; j++)
-        {
-            printf("tidsAndPidsDevice[%d][%d] = %d",i,j,tidsAndPidsDevice[i][j]);
-        }
+        printf("tidsAndPidsDevice[%d] = %d",i,tidsAndPidsDevice[i]);
         
     }
     
@@ -119,7 +116,7 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
     int numBlocks = (int) ceil( numPoints * tCount / THREADS_PER_BLOCK);
 
     // Finding all the Proximity Criteria of each distinct t value
-    findProximityCriteria<<<numBlocks, THREADS_PER_BLOCK>>>(pointsArrDevice, numPoints, actualTsDevice, tidsAndPidsDevice, tCount, proximity, distance, minTIndex, maxTIndex);
+    findProximityCriteria<<<numBlocks, THREADS_PER_BLOCK>>>(pointsArrDevice, numPoints, actualTsDevice,(int**) tidsAndPidsDevice, tCount, proximity, distance, minTIndex, maxTIndex);
 
     err = cudaGetLastError();
     if (err != cudaSuccess) {
