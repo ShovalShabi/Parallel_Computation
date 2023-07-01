@@ -20,12 +20,11 @@ typedef struct {
 } Point;
 
 
-// void test(const Point* pointsArr, int numPoints, int* tOccurences, int tCount);
 
 Point* readFromFile(int* numPoints, int* tCount, int* proximity, double* radius);
-
-// void writeToFile(int** alltidAndPids, int tCount, double* actualTs);
 
 void buildTcountArr(double* tArr, int tCount);
 
 int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAndPids , int numT, int proximity, double distance, int minTIndex, int maxTIndex);
+
+void writeToFile(char* fileName, int** tidsAndPids, int tCount);

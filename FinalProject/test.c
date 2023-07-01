@@ -71,29 +71,30 @@ int main(int argc, char *argv[])
     
     int printed = 0, countPerT = 0;
 
-    printf("here\n");
-
     for (int i = 0; i < tCount; i++){
         for (int j = 0; j < numPoints; j++){
             for (int k = 0; k < numPoints && j!=k; k++){
-                if (calculateDistance(pointArr[j], pointArr[k], actualTs[i]) <= distance){
-                    // printf("point %d is a proximity criteria at t =%lf\n",pointArr[j].id,actualTs[i]);
+                if (calculateDistance(pointArr[j], pointArr[k], actualTs[i]) <= distance)
                     countPerT++;
-                }
-                
-                if(countPerT == CONSTRAINT && proxCounter < CONSTRAINT){
-                    proxCounter[i]++;
-                    for (int h = 0; h < CONSTRAINT; h++){
-                        if(proximities[i][h] < 0)
-                            proximities[i][h] = pointArr[j].id;
+            }
+
+            if(countPerT == proximity && proxCounter[i] < CONSTRAINT){
+                for (int h = 0; h < CONSTRAINT; h++){
+                    if (pointArr[j].id == proximities[i][h])
+                        break;
+                    
+                    if(proximities[i][h] < 0){
+                        proximities[i][h] = pointArr[j].id;
+                        printf("Point %d got is proximity criteria at proximities[%d][%d] for tValue =%lf\n",pointArr[j].id,i,h,actualTs[i]);
+                        proxCounter[i]++;
+                        break;
                     }
-                    break;
                 }
             }
-            if(proxCounter[i] == CONSTRAINT){
-                printf("found %d ProximityCriteria points at t =%lf\n",CONSTRAINT,actualTs[i]);
+
+            if(proxCounter[i] == CONSTRAINT)
                 printed = 1;  
-            }
+            
             countPerT = 0;
         }
 

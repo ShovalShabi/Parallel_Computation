@@ -11,6 +11,7 @@ build:
 
 clean:
 	rm -f *.o ProximityCriteria *.btr Test
+	find . -type f -name '*.txt' ! -name 'input.txt' -exec rm -f {} +
 
 run:
 	mpiexec -np $(NUM_PROCESSES) ./ProximityCriteria
