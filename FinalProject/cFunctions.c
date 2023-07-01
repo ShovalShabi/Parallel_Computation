@@ -56,7 +56,7 @@ void buildTcountArr(double* tArr, int tCount){
         // int tid = omp_get_thread_num();
         // printf("Thread %d caclulated t=%lf with t=%d\n",tid,tArr[i],i);
     }
-    printf("finished caclulate all t values.\n");
+    printf("\nfinished caclulate all t values.\n");
     
 }
 

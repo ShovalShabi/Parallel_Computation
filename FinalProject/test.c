@@ -100,6 +100,9 @@ int main(int argc, char *argv[])
         }
 
     }
+
+    printf("\nFinished to calculate ProximityCriteria points.\n");
+
     // if (printed){
     //     for (int i = 0; i < tCount; i++){
     //         if(proxCounter[i] == CONSTRAINT){
@@ -130,9 +133,9 @@ int main(int argc, char *argv[])
 
     endTime = clock();
     double res = ((double) endTime - startTime) / CLOCKS_PER_SEC;
-    printf("Test passed successfully! at %.4lf seconds!\n",res);
+    printf("\nTest passed successfully at %.4lf seconds!\n",res);
 
-    printf("Please the created %s file to observe the results.\n",TEST_OUTPUT_FILE);
+    printf("\nPlease the created %s file to observe the results.\n\n",TEST_OUTPUT_FILE);
 
     return 0;
 }

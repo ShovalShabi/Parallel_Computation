@@ -55,7 +55,7 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
 
     // Allocate memory on device for overall points buffer on device
     Point* pointsArrDevice = NULL;
-    err = cudaMalloc((void**)&pointsArrDevice, numPoints*sizeof(Point));
+    err = cudaMalloc((void**)&pointsArrDevice, numPoints * sizeof(Point));
     if (err != cudaSuccess) {
         fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
         exit(EXIT_FAILURE);
