@@ -57,7 +57,7 @@ __global__ void intializeTidsAndPids(int* tidsAndPidsDevice){
 int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAndPids , int tCount, int proximity, double distance, int minTIndex, int maxTIndex) {
     // Error code to check return values for CUDA calls
     cudaError_t err = cudaSuccess;
-    size_t pitch;
+    // size_t pitch;
 
     // Allocate memory on device for overall points buffer on device
     Point* pointsArrDevice = NULL;
@@ -89,27 +89,55 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
         exit(EXIT_FAILURE);
     }
 
-    // Allocate the matching tids and pids to two dimensional array to the device
-    int* tidsAndPidsDevice = NULL;
-    err = cudaMallocPitch((void**) &tidsAndPidsDevice, &pitch, tCount * sizeof(int), CONSTRAINT * sizeof(int));
+    // Allocate memory for whole columns of the 2D array on the device
+    int** tidsAndPidsDevice = NULL;
+    err = cudaMalloc((void**)&tidsAndPidsDevice, tCount * sizeof(int*));
     if (err != cudaSuccess) {
         fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
         exit(EXIT_FAILURE);
     }
 
-    // Copying the matching tids and pids to two dimensional array to the device
-    err = cudaMemcpy2D(tidsAndPidsDevice, pitch, tidsAndPids, tCount * sizeof(int), tCount * sizeof(int) , CONSTRAINT , cudaMemcpyHostToDevice);
+    err = cudaMemcpy(tidsAndPidsDevice,tidsAndPids,tCount*sizeof(int*),cudaMemcpyHostToDevice);
+    
     if (err != cudaSuccess) {
         fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
         exit(EXIT_FAILURE);
     }
+    printf("Allocated clumns\n");
+    // Allocate memory for each row of the 2D array on the device
+    for (int i = 0; i < tCount; i++) {
+        printf("Allocating row %d\n",i);
+        err = cudaMalloc((void**)&tidsAndPidsDevice[i], CONSTRAINT * sizeof(int));
+        if (err != cudaSuccess) {
+            fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
+            exit(EXIT_FAILURE);
+        }
+    }
 
-    intializeTidsAndPids <<<1, tCount * CONSTRAINT>>>(tidsAndPidsDevice);
+    printf("Allocated rows\n");
+
+    intializeTidsAndPids <<<1, tCount * CONSTRAINT>>>((int*)tidsAndPidsDevice);
+
+    for (int i = 0; i < tCount; i++){
+        err = cudaMemcpy(tidsAndPids[i],tidsAndPidsDevice[i],CONSTRAINT*sizeof(int),cudaMemcpyDeviceToHost);
+        if (err != cudaSuccess) {
+            fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
+            exit(EXIT_FAILURE);
+        }
+    }
+    
+    // err = cudaMemcpy2D(tidsAndPids, pitch, tidsAndPidsDevice, tCount * sizeof(int), tCount * sizeof(int) , CONSTRAINT , cudaMemcpyDeviceToHost);
+
+
     printf("here");
-    for (int i = 0; i < tCount*CONSTRAINT; i++)
+
+    for (int i = 0; i < tCount; i++)
     {
-        printf("tidsAndPidsDevice[%d] = %d",i,tidsAndPidsDevice[i]);
-        
+        for (int j = 0; j < CONSTRAINT; j++)
+        {
+            printf("tidsAndPidsDevice[%d][%d] = %d",i,j,tidsAndPids[i][j]);
+        }
+                
     }
     
 
@@ -127,12 +155,12 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
     // Synchronize to ensure all CUDA operations are completed
     cudaDeviceSynchronize();
 
-    // Copy the final histogram from the device to the host
-    err = cudaMemcpy2D(tidsAndPids, tCount * sizeof(int), tidsAndPidsDevice, pitch, tCount * sizeof(int), CONSTRAINT, cudaMemcpyDeviceToHost);
-    if (err != cudaSuccess) {
-        fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
+    // // Copy the final histogram from the device to the host
+    // err = cudaMemcpy2D(tidsAndPids, tCount * sizeof(int), tidsAndPidsDevice, pitch, tCount * sizeof(int), CONSTRAINT, cudaMemcpyDeviceToHost);
+    // if (err != cudaSuccess) {
+    //     fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
+    //     exit(EXIT_FAILURE);
+    // }
 
     // Free device global memory
     err = cudaFree(pointsArrDevice);

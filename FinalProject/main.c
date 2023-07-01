@@ -126,10 +126,14 @@ int main(int argc, char *argv[]) {
       MPI_Abort(MPI_COMM_WORLD, __LINE__);
    }
 
-   // for (int i = 0; i < numT; i++){
-   //    int prox[CONSTRAINT] = {-1,-1,-1};
-   //    tidsAndPids[i] = prox;
-   // }
+   for (int i = 0; i < numT; i++){
+      tidsAndPids[i] = (int*) malloc (sizeof(int)*CONSTRAINT);
+      
+      if(!tidsAndPids){
+         perror("Allocating memory has been failed\n");
+         MPI_Abort(MPI_COMM_WORLD, __LINE__);
+      }
+   }
    
    // Each process calculate its task on the GPU
    computeOnGPU(pointArr, numPoints, actualTs, tidsAndPids , tCount, proximity, distance, minTIndex, maxTIndex);
