@@ -22,7 +22,8 @@ double calculateDistance(const Point p1,const Point p2, double t){
  */
 int main(int argc, char *argv[])
 {
-
+    clock_t startTime, endTime;
+    startTime = clock();
     Point *pointArr = NULL;
     int numPoints, tCount, proximity;
     int minTIndex, maxTIndex; // The start index and index to each process to check t values
@@ -85,7 +86,7 @@ int main(int argc, char *argv[])
                     
                     if(proximities[i][h] < 0){
                         proximities[i][h] = pointArr[j].id;
-                        printf("Point %d got is proximity criteria at proximities[%d][%d] for tValue =%lf\n",pointArr[j].id,i,h,actualTs[i]);
+                        // printf("Point %d got is proximity criteria at proximities[%d][%d] for tValue =%lf\n",pointArr[j].id,i,h,actualTs[i]);
                         proxCounter[i]++;
                         break;
                     }
@@ -99,19 +100,21 @@ int main(int argc, char *argv[])
         }
 
     }
-    if (printed){
-        for (int i = 0; i < tCount; i++){
-            if(proxCounter[i] == CONSTRAINT){
-                for (int j = 0; j < CONSTRAINT; j++){
-                    printf("pointId=%d ",proximities[i][j]);
-                }
-                printf(" are ProximityCriteria at t=%lf\n",actualTs[i]);
-            }            
-        }
-    }
-    else{
-        printf("There are no ProximtyCriteria Points!\n");
-    }
+    // if (printed){
+    //     for (int i = 0; i < tCount; i++){
+    //         if(proxCounter[i] == CONSTRAINT){
+    //             for (int j = 0; j < CONSTRAINT; j++){
+    //                 printf("pointId=%d ",proximities[i][j]);
+    //             }
+    //             printf(" are ProximityCriteria at t=%lf\n",actualTs[i]);
+    //         }            
+    //     }
+    // }
+    // else{
+    //     printf("There are no ProximtyCriteria Points!\n");
+    // }
+
+    writeToFile(TEST_OUTPUT_FILE, proximities, actualTs, tCount);
     
     free(proxCounter);
 
@@ -124,6 +127,12 @@ int main(int argc, char *argv[])
     free(proximities);
 
     free(actualTs);
+
+    endTime = clock();
+    double res = ((double) endTime - startTime) / CLOCKS_PER_SEC;
+    printf("Test passed successfully! at %.4lf seconds!\n",res);
+
+    printf("Please the created %s file to observe the results.\n",TEST_OUTPUT_FILE);
 
     return 0;
 }

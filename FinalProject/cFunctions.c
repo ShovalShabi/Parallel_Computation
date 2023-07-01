@@ -61,33 +61,54 @@ void buildTcountArr(double* tArr, int tCount){
 }
 
 
-void writeToFile(char* fileName, int** tidsAndPids, int tCount){
+void writeToFile(const char* fileName, int** tidsAndPids, double* actualTs, int tCount){
     int printed = 0;
     FILE* file;
 
     file = fopen(fileName,"w");
 
     if(!file){
-        perror("Failed to write to file %s",fileName);
+        perror("Failed to write to file\n");
         exit(1);
     }
 
+    int* proxCounter = (int*) calloc(tCount,sizeof(int));
+    
+    if(!proxCounter){
+        perror("Allocating memory has been failed\n");
+        fclose(file);
+        exit(1);
+    }
+
+    #pragma omp parallel for shared(proxCounter)
+    for (int i = 0; i < tCount; i++){
+        for (int j = 0; j < CONSTRAINT; j++){
+            if (tidsAndPids[i][j] > 0)
+                proxCounter[i]++;
+        }
+        
+    }
+    for (int i = 0; i < tCount; i++){   
+        if (proxCounter[i] == CONSTRAINT){
+            printed = 1;
+            break;
+        }
+    }
+    
     
     if (printed){
         for (int i = 0; i < tCount; i++){
             if(proxCounter[i] == CONSTRAINT){
                 for (int j = 0; j < CONSTRAINT; j++){
-                    printf("pointId=%d ",tidsAndPids[i][j]);
+                    fprintf(file,"pointId=%d ",tidsAndPids[i][j]);
                 }
-                printf(" are ProximityCriteria at t=%lf\n",actualTs[i]);
+                fprintf(file," are ProximityCriteria at t=%lf\n",actualTs[i]);
             }            
         }
     }
-    if (!printed){
-        
-    }
-    else{
-        printf("There are no ProximtyCriteria Points!\n");
-    }
-
+    else
+        fprintf(file,"There are no ProximtyCriteria Points!\n");
+    
+    free(proxCounter);
+    fclose(file);
 }
