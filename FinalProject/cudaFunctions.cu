@@ -46,9 +46,15 @@ __global__ void findProximityCriteria(Point* pointsArrDevice, int nCount, double
     }
 }
 
+__global__ void intializeTidsAndPids(int* tidsAndPidsDevice){
+    int threadId = threadIdx.x;
+
+    tidsAndPidsDevice[threadId] = -1;
+}
 
 
-int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAndPids , int numT, int proximity, double distance, int minTIndex, int maxTIndex) {
+
+int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAndPids , int tCount, int proximity, double distance, int minTIndex, int maxTIndex) {
     // Error code to check return values for CUDA calls
     cudaError_t err = cudaSuccess;
     size_t pitch;
@@ -62,7 +68,7 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
     }
 
     // Copying memory on device for overall points buffer on device
-    err = cudaMemcpy(pointsArrDevice, pointArr, numPoints, cudaMemcpyHostToDevice);
+    err = cudaMemcpy(pointsArrDevice, pointArr, numPoints * sizeof(Point), cudaMemcpyHostToDevice);
     if (err != cudaSuccess) {
         fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
         exit(EXIT_FAILURE);
@@ -70,14 +76,14 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
 
     // Allocate memory on device for actual t values buffer on device
     double* actualTsDevice = NULL;
-    err = cudaMalloc((void**) &actualTsDevice, numT*sizeof(double));
+    err = cudaMalloc((void**) &actualTsDevice, tCount * sizeof(double));
     if (err != cudaSuccess) {
         fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
         exit(EXIT_FAILURE);
     }
     
     // Copying memory on device for actual t values buffer on device
-    err = cudaMemcpy(actualTsDevice, actualTs, numT, cudaMemcpyHostToDevice);
+    err = cudaMemcpy(actualTsDevice, actualTs, tCount * sizeof(double), cudaMemcpyHostToDevice);
     if (err != cudaSuccess) {
         fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
         exit(EXIT_FAILURE);
@@ -85,23 +91,35 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
 
     // Allocate the matching tids and pids to two dimensional array to the device
     int** tidsAndPidsDevice = NULL;
-    err = cudaMallocPitch((void**) tidsAndPidsDevice, &pitch, numT * sizeof(int), CONSTRAINT);
+    err = cudaMallocPitch((void**) tidsAndPidsDevice, &pitch, tCount * sizeof(int), CONSTRAINT);
     if (err != cudaSuccess) {
         fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
         exit(EXIT_FAILURE);
     }
 
     // Copying the matching tids and pids to two dimensional array to the device
-    err = cudaMemcpy2D(tidsAndPidsDevice, pitch, tidsAndPids, numT * sizeof(int), numT * sizeof(int) , CONSTRAINT, cudaMemcpyHostToDevice);
+    err = cudaMemcpy2D(tidsAndPidsDevice, pitch, tidsAndPids, tCount * sizeof(int), tCount * sizeof(int) , CONSTRAINT, cudaMemcpyHostToDevice);
     if (err != cudaSuccess) {
         fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
         exit(EXIT_FAILURE);
     }
 
-    int numBlocks = (int) ceil( numPoints * numT / THREADS_PER_BLOCK);
+    intializeTidsAndPids <<<1, tCount * CONSTRAINT>>>((int*) tidsAndPids);
+
+    for (int i = 0; i < tCount; i++)
+    {
+        for (int j = 0; j < CONSTRAINT; j++)
+        {
+            printf("tidsAndPidsDevice[%d][%d] = %d",i,j,tidsAndPidsDevice[i][j]);
+        }
+        
+    }
+    
+
+    int numBlocks = (int) ceil( numPoints * tCount / THREADS_PER_BLOCK);
 
     // Finding all the Proximity Criteria of each distinct t value
-    findProximityCriteria<<<numBlocks, THREADS_PER_BLOCK>>>(pointsArrDevice, numPoints, actualTsDevice, tidsAndPidsDevice, numT, proximity, distance, minTIndex, maxTIndex);
+    findProximityCriteria<<<numBlocks, THREADS_PER_BLOCK>>>(pointsArrDevice, numPoints, actualTsDevice, tidsAndPidsDevice, tCount, proximity, distance, minTIndex, maxTIndex);
 
     err = cudaGetLastError();
     if (err != cudaSuccess) {
@@ -113,7 +131,7 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
     cudaDeviceSynchronize();
 
     // Copy the final histogram from the device to the host
-    err = cudaMemcpy2D(tidsAndPids, numT * sizeof(int), tidsAndPidsDevice, pitch, numT * sizeof(int), CONSTRAINT, cudaMemcpyDeviceToHost);
+    err = cudaMemcpy2D(tidsAndPids, tCount * sizeof(int), tidsAndPidsDevice, pitch, tCount * sizeof(int), CONSTRAINT, cudaMemcpyDeviceToHost);
     if (err != cudaSuccess) {
         fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
         exit(EXIT_FAILURE);

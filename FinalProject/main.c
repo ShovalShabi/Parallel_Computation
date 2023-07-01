@@ -132,7 +132,7 @@ int main(int argc, char *argv[]) {
    // }
    
    // Each process calculate its task on the GPU
-   computeOnGPU(pointArr, numPoints, actualTs, tidsAndPids , numT, proximity, distance, minTIndex, maxTIndex);
+   computeOnGPU(pointArr, numPoints, actualTs, tidsAndPids , tCount, proximity, distance, minTIndex, maxTIndex);
 
    // Collect the result from slave process
    if (rank == 0){
