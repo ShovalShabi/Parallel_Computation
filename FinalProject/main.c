@@ -83,14 +83,6 @@ int main(int argc, char *argv[]) {
    // Broadcasting all points
    MPI_Bcast(pointArr, numPoints, MPI_POINT, MASTER_PROC, MPI_COMM_WORLD);
 
-   // for (int i = 0; i < numPoints; i++){
-   //    printf("pointArr[%d]=%d rank=%d\n",i,pointArr[i].id,rank);
-   // }
-
-   // for (int i = 0; i < tCount; i++){
-   //    printf("tArr[%d]=%lf rank=%d\n",i,actualTs[i],rank);
-   // }
-
 
    //The master creating the total array that holds all the tids and their Proximty Criteria points, will be recieved later
    int chunck = tCount/size;
@@ -147,10 +139,14 @@ int main(int argc, char *argv[]) {
          MPI_Recv(allTidsAndPids + status.MPI_TAG*chunck,chunck,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&status); //Reciving the other Criteria Points from the slave processes, the tag is the rank of the process that sent it
       }
 
-    printf("\nFinished to calculate ProximityCriteria points.\n");
-      //Write to output file here
+      printf("\nFinished to calculate ProximityCriteria points.\n");
 
-      //test here
+      writeToFile(OUTPUT_FILE, tidsAndPids, actualTs, tCount);
+
+      for (int i = 0; i < tCount; i++){
+         free(allTidsAndPids[i]);
+      }
+      
 
       free(allTidsAndPids);  
    }
@@ -162,7 +158,13 @@ int main(int argc, char *argv[]) {
 
    MPI_Type_free(&MPI_POINT);
    free(pointArr);
+
+   for (int i = 0; i < tCount; i++){
+      free(tidsAndPids[i]);
+   }
+   
    free(tidsAndPids);
+   free(actualTs);
 
    MPI_Finalize();
    return 0;
