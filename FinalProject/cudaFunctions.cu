@@ -2,7 +2,6 @@
 #include <helper_cuda.h>
 #include "myProto.h"
 
-
 __device__ double calculateDistance(const Point p1,const Point p2, double t){
     double xP1, yP1, xP2, yP2;
 
@@ -64,9 +63,9 @@ __global__ void intializeTidsAndPids(int* tidsAndPidsDevice){
 
 
 int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAndPids , int tCount, int proximity, double distance, int minTIndex, int maxTIndex) {
+
     // Error code to check return values for CUDA calls
     cudaError_t err = cudaSuccess;
-    // size_t pitch;
 
     // Allocate memory on device for overall points buffer on device
     Point* pointsArrDevice = NULL;
@@ -165,6 +164,13 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
 
     // Free device global memory
     err = cudaFree(tidsAndPidsDevice);
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
+        exit(EXIT_FAILURE);
+    }
+
+    // Reset the device
+    err = cudaDeviceReset();
     if (err != cudaSuccess) {
         fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
         exit(EXIT_FAILURE);
