@@ -23,7 +23,7 @@ typedef struct {
 
 
 
-Point* readFromFile(int* numPoints, int* tCount, int* proximity, double* radius);
+Point* readFromFile(int* numPoints, int* tCount, int* proximity, double* distance);
 
 void buildTcountArr(double* tArr, int tCount);
 

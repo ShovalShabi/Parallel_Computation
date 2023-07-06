@@ -10,6 +10,9 @@
  */
 int main(int argc, char *argv[]) {
 
+   clock_t startTime, endTime;
+   startTime = clock();
+
    int size, rank, numT;
    MPI_Status  status;
 
@@ -163,11 +166,17 @@ int main(int argc, char *argv[]) {
 
       writeToFile(OUTPUT_FILE, allTidsAndPids, actualTs, tCount);
 
+      printf("\nPlease open the created %s file to observe the results.\n",OUTPUT_FILE);
+
       for (int i = 0; i < tCount; i++){
          free(allTidsAndPids[i]);
       }
 
-      free(allTidsAndPids);  
+      free(allTidsAndPids);
+
+      endTime = clock();
+      double res = ((double) endTime - startTime) / CLOCKS_PER_SEC;
+      printf("\nProgram finished caclulation successfully at %.4lf seconds!\n\n",res);  
    }
 
    // Send the data to master process
