@@ -121,6 +121,8 @@ int main(int argc, char *argv[]) {
    for (int i = 0; i < tCount; i++){
       tidsAndPids[i] = (int*) malloc (sizeof(int)*CONSTRAINT);
 
+      printf("rank %d allocated tidsAndPids[%d]\n",rank,i);
+
       if(!tidsAndPids){
          perror("Allocating memory has been failed\n");
          MPI_Abort(MPI_COMM_WORLD, __LINE__);
@@ -134,19 +136,14 @@ int main(int argc, char *argv[]) {
    if (rank == 0){
       allTidsAndPids = tidsAndPids; //The Criteria Points of the specified tids
 
-      int** recvBuf = (int**) malloc(chunck*sizeof(int*));
+      for (int i = chunck; i < tCount; i++){       
+         int recvBuf[CONSTRAINT];
 
-      if (!chunck){
-         perror("Allocating memory has been failed\n");
-         MPI_Abort(MPI_COMM_WORLD, __LINE__);
-      }
-
-      for (int i = 1; i < tCount; i++){
          //Matching the relevant tids and the pid of the Criteria points of each process
-         MPI_Recv(recvBuf,chunck,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&status); //Reciving the other Criteria Points from the slave processes, the tag is the rank of the process that sent it
+         MPI_Recv(recvBuf,CONSTRAINT,MPI_INT,MPI_ANY_SOURCE,i,MPI_COMM_WORLD,&status); //Reciving the other Criteria Points from the slave processes, the tag is the rank of the process that sent it
          
-         for (int j = 0; j < chunck; j++){
-            allTidsAndPids[status.MPI_TAG*chunck] = recvBuf[j];
+         for (int j = 0; j < CONSTRAINT; j++){
+            allTidsAndPids[i][j] = recvBuf[j];
          }
          
       }
@@ -176,7 +173,10 @@ int main(int argc, char *argv[]) {
 
    // Send the data to master process
    else{
-      MPI_Send(tidsAndPids+minTIndex,numT,MPI_INT,MASTER_PROC,rank,MPI_COMM_WORLD); //Sending the other Criteria Points from the slave processes, the tag is the rank of process that sent it
+      for (int i = minTIndex; i <= maxTIndex; i++){
+         MPI_Send(tidsAndPids+i,CONSTRAINT,MPI_INT,MASTER_PROC,i,MPI_COMM_WORLD); //Sending the other Criteria Points from the slave processes, the tag is the current index that beinfg requested by the master process
+      }
+      
    }
 
    MPI_Type_free(&MPI_POINT);
