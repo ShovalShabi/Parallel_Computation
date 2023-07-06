@@ -23,7 +23,6 @@ __global__ void findProximityCriteria(Point* pointsArrDevice, int nCount, double
         int indexPoint = threadId % nCount;  // The index of the point within the buffer
         int indexT = threadId / nCount;  // The index of the current t value
 
-        //printf("Thread %d calculating point %d and t[%d]=%lf\n",threadId,pointsArrDevice[indexPoint].id,indexT,actualTsDevice[indexT]);
 
         //Making sure that the process caclute only the range of t values that assigned to it
         if ( minTIndex <= indexT <= maxTIndex  ){
@@ -45,7 +44,6 @@ __global__ void findProximityCriteria(Point* pointsArrDevice, int nCount, double
                     
                     if(tidAndPidsDevice[indexT * CONSTRAINT + j] < 0){
                         atomicExch(&tidAndPidsDevice[indexT * CONSTRAINT + j],pointsArrDevice[indexPoint].id);
-                        // printf("Thread %d found point %d as proximity point at t[%d]=%lf\n",threadId,pointsArrDevice[indexPoint].id,indexT,actualTsDevice[indexT]);
                         break;
                     }    
                 }
@@ -107,7 +105,6 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
 
     intializeTidsAndPids <<<1, tCount * CONSTRAINT>>>(tidsAndPidsDevice);
 
-    printf("Initilized tidsAndPids\n");
     
     int numBlocks = (int) ceil( numPoints * tCount / THREADS_PER_BLOCK);
 
@@ -123,12 +120,10 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
     // Synchronize to ensure all CUDA operations are completed
     cudaDeviceSynchronize();
 
-    printf("Finished to find ProximtyCriteria\n");
-
     // Copy the final histogram from the device to the host
     for (int i = minTIndex; i <= maxTIndex; i++){
+        
         //Copying under each t index the ids of the ProximityCriteria points
-        printf("Copying values to tidsAndPids[%d]\n",i);
         err =  cudaMemcpy(tidsAndPids[i],tidsAndPidsDevice + i * CONSTRAINT, CONSTRAINT * sizeof(int),cudaMemcpyDeviceToHost);
 
         if (err != cudaSuccess) {
@@ -137,16 +132,6 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
         }
     }
 
-    printf("Copied all tidsAndPids\n");
-
-    for (int i = minTIndex; i <= maxTIndex; i++)
-    {
-        for (int j = 0; j < CONSTRAINT; j++)
-        {
-            printf("The process in ranges %d -- %d seen tidsAndPids[%d][%d] = %d\n",minTIndex,maxTIndex,i,j,tidsAndPids[i][j]);
-        }
-        
-    }
      
     // Free device global memory
     err = cudaFree(pointsArrDevice);
@@ -176,6 +161,5 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
         exit(EXIT_FAILURE);
     }
 
-    printf("Done\n");
     return 0;
 }

@@ -3,30 +3,32 @@
 #include "mpi.h"
 
 /**
- * @brief Main function for the MPI program
+ * @brief Main function for the MPI program, from this file the MPI processes are being created.
  * @param argc Number of command-line arguments
  * @param argv Array of command-line arguments
  * @return 0 on success
  */
 int main(int argc, char *argv[]) {
 
-   int size, rank, i;
-   int numT;
+   int size, rank, numT;
    MPI_Status  status;
 
    Point* pointArr = NULL;
    int numPoints, tCount, proximity;
-   int minTIndex, maxTIndex; //The start index and index to each process to check t values
-   double distance;  //The recived distnace
-   double* actualTs; //The actual values of the Ts
-   int** tidsAndPids;
-   int** allTidsAndPids;
+   int minTIndex, maxTIndex; // The start index and index to each process to check t values
+   double distance;  // The recieved distnace
+   double* actualTs; // The actual values of the Ts
+   int** allTidsAndPids; // A two dimensional array that holds the relevant ids of point who correspond with ProximityCriteria (exposed to master only)
+   int** tidsAndPids;  // The same as above, this pointer is independent to each process
 
-   //Intiallizing MPI
+
+   // Intiallizing MPI
    MPI_Init(&argc, &argv);
 
+   // Retrieving the sizeof MPI
    MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+   // Giving id to weach process 
    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
    if (size < 2) {
@@ -34,7 +36,7 @@ int main(int argc, char *argv[]) {
       MPI_Abort(MPI_COMM_WORLD, __LINE__);
    }
    
-   // Divide the tasks between both processes
+   // Master handling input file
    if (rank == 0)
       pointArr = readFromFile(&numPoints,&tCount,&proximity,&distance);
 
@@ -50,13 +52,13 @@ int main(int argc, char *argv[]) {
    // Broadcasting the radius
    MPI_Bcast(&distance, 1, MPI_DOUBLE, MASTER_PROC, MPI_COMM_WORLD);
 
-   // printf("rank=%d N=%d tCount=%d K=%d, D=%lf\n",rank,numPoints,tCount,proximity,distance);
 
    // Define MPI_POINT datatypes
    MPI_Datatype MPI_POINT;
    MPI_Type_contiguous(sizeof(Point), MPI_BYTE, &MPI_POINT);
    MPI_Type_commit(&MPI_POINT);
 
+   // An array of t values
    actualTs = (double*) malloc(sizeof(double) * tCount);
 
    if(!actualTs){
@@ -64,11 +66,12 @@ int main(int argc, char *argv[]) {
       MPI_Abort(MPI_COMM_WORLD, __LINE__);
    }
 
+   // Building the array of t values that needed to be calculated
    if (!rank){
       buildTcountArr(actualTs,tCount); //Creating the array of the total Ts that needed to be calculted
    }
 
-   //Alocating memory for the slave processes, is needed to acknowledge the whole buffer
+   // Alocating memory for the slave processes, is needed to acknowledge the whole buffer
    else {
       pointArr = (Point*) malloc(sizeof(Point) * numPoints);
       if(!pointArr){
@@ -84,8 +87,9 @@ int main(int argc, char *argv[]) {
    MPI_Bcast(pointArr, numPoints, MPI_POINT, MASTER_PROC, MPI_COMM_WORLD);
 
 
-   //The master creating the total array that holds all the tids and their Proximty Criteria points, will be recieved later
-   int chunck = tCount/size;
+   int chunck = tCount/size; // The chunk size of each process except master
+   
+   // The master creating the total array that holds all the tids and their Proximty Criteria points, will be recieved later
    if (rank==0){
       numT = (tCount/size) + (tCount % size);
       allTidsAndPids = (int**) malloc(sizeof(int*) * tCount);
@@ -108,9 +112,7 @@ int main(int argc, char *argv[]) {
       MPI_Recv(&maxTIndex,1,MPI_INT,MASTER_PROC,MPI_ANY_TAG,MPI_COMM_WORLD,&status);  //Recieving the maximum index of the actualTValues buffer to the process that need to calculate
    }
 
-   printf("rank %d sweeps t values in range %d -- %d with chunk size of %d\n",rank,minTIndex,maxTIndex,numT);
-
-   // The sub array that contains the pids of that apply Proximity Criteria under specific tid which is tidsAndPids[i]
+   // The independent array that contains the pids of that apply ProximityCriteria under specific tid which is tidsAndPids[i] in size of CONSTRAINT
    tidsAndPids = (int**) malloc(sizeof(int*) * tCount);
 
    if(!tidsAndPids){
@@ -120,8 +122,6 @@ int main(int argc, char *argv[]) {
 
    for (int i = 0; i < tCount; i++){
       tidsAndPids[i] = (int*) malloc (sizeof(int)*CONSTRAINT);
-
-      printf("rank %d allocated tidsAndPids[%d]\n",rank,i);
 
       if(!tidsAndPids){
          perror("Allocating memory has been failed\n");
@@ -134,11 +134,11 @@ int main(int argc, char *argv[]) {
 
    // Collect the result from slave process
    if (rank == 0){
-      allTidsAndPids = tidsAndPids; //The Criteria Points of the specified tids
+      allTidsAndPids = tidsAndPids; //The CriteriaPoints of the specified tids
 
+      // Recieving the ids under specific t index
       for (int i = chunck + 1; i < tCount; i++){       
          int recvBuf[CONSTRAINT];
-         printf("process %d recieving index %d\n",rank,i);
          //Matching the relevant tids and the pid of the Criteria points of each process
          MPI_Recv(recvBuf,CONSTRAINT,MPI_INT,MPI_ANY_SOURCE,i,MPI_COMM_WORLD,&status); //Reciving the other Criteria Points from the slave processes, the tag is the rank of the process that sent it
          
@@ -150,15 +150,15 @@ int main(int argc, char *argv[]) {
 
       printf("\nFinished to calculate ProximityCriteria points.\n");
 
-      for (int i = 0; i < tCount; i++)
-      {
-         for (int j = 0; j < CONSTRAINT; j++)
-         {
-            printf("tidsAndPids[%d][%d] = %d\t",i,j,allTidsAndPids[i][j]);
-         }
-         printf("\n");
+      // for (int i = 0; i < tCount; i++)
+      // {
+      //    for (int j = 0; j < CONSTRAINT; j++)
+      //    {
+      //       printf("tidsAndPids[%d][%d] = %d\t",i,j,allTidsAndPids[i][j]);
+      //    }
+      //    printf("\n");
          
-      }
+      // }
       
 
       writeToFile(OUTPUT_FILE, allTidsAndPids, actualTs, tCount);
