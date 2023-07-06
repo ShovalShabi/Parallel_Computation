@@ -136,9 +136,9 @@ int main(int argc, char *argv[]) {
    if (rank == 0){
       allTidsAndPids = tidsAndPids; //The Criteria Points of the specified tids
 
-      for (int i = chunck; i < tCount; i++){       
+      for (int i = chunck + 1; i < tCount; i++){       
          int recvBuf[CONSTRAINT];
-
+         printf("process %d recieving index %d\n",rank,i);
          //Matching the relevant tids and the pid of the Criteria points of each process
          MPI_Recv(recvBuf,CONSTRAINT,MPI_INT,MPI_ANY_SOURCE,i,MPI_COMM_WORLD,&status); //Reciving the other Criteria Points from the slave processes, the tag is the rank of the process that sent it
          
@@ -166,7 +166,6 @@ int main(int argc, char *argv[]) {
       for (int i = 0; i < tCount; i++){
          free(allTidsAndPids[i]);
       }
-      
 
       free(allTidsAndPids);  
    }
@@ -174,19 +173,19 @@ int main(int argc, char *argv[]) {
    // Send the data to master process
    else{
       for (int i = minTIndex; i <= maxTIndex; i++){
-         MPI_Send(tidsAndPids+i,CONSTRAINT,MPI_INT,MASTER_PROC,i,MPI_COMM_WORLD); //Sending the other Criteria Points from the slave processes, the tag is the current index that beinfg requested by the master process
+         MPI_Send(tidsAndPids[i],CONSTRAINT,MPI_INT,MASTER_PROC,i,MPI_COMM_WORLD); //Sending the other Criteria Points from the slave processes, the tag is the current index that beinfg requested by the master process
       }
+
+      for (int i = 0; i < tCount; i++){
+         free(tidsAndPids[i]);
+      }
+      
+      free(tidsAndPids);
       
    }
 
    MPI_Type_free(&MPI_POINT);
    free(pointArr);
-
-   for (int i = 0; i < tCount; i++){
-      free(tidsAndPids[i]);
-   }
-   
-   free(tidsAndPids);
    free(actualTs);
 
    MPI_Finalize();

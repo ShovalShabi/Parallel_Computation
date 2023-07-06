@@ -111,4 +111,5 @@ void writeToFile(const char* fileName, int** tidsAndPids, double* actualTs, int 
     
     free(proxCounter);
     fclose(file);
+    printf("\nPrinted to file %s successfully!\n",fileName);
 }
