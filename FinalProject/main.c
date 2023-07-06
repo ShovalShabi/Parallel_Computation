@@ -118,9 +118,9 @@ int main(int argc, char *argv[]) {
       MPI_Abort(MPI_COMM_WORLD, __LINE__);
    }
 
-   for (int i = 0; i < numT; i++){
+   for (int i = 0; i < tCount; i++){
       tidsAndPids[i] = (int*) malloc (sizeof(int)*CONSTRAINT);
-      
+
       if(!tidsAndPids){
          perror("Allocating memory has been failed\n");
          MPI_Abort(MPI_COMM_WORLD, __LINE__);
@@ -134,14 +134,37 @@ int main(int argc, char *argv[]) {
    if (rank == 0){
       allTidsAndPids = tidsAndPids; //The Criteria Points of the specified tids
 
-      for (int i = 1; i < size; i++){
+      int** recvBuf = (int**) malloc(chunck*sizeof(int*));
+
+      if (!chunck){
+         perror("Allocating memory has been failed\n");
+         MPI_Abort(MPI_COMM_WORLD, __LINE__);
+      }
+
+      for (int i = 1; i < tCount; i++){
          //Matching the relevant tids and the pid of the Criteria points of each process
-         MPI_Recv(allTidsAndPids + status.MPI_TAG*chunck,chunck,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&status); //Reciving the other Criteria Points from the slave processes, the tag is the rank of the process that sent it
+         MPI_Recv(recvBuf,chunck,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&status); //Reciving the other Criteria Points from the slave processes, the tag is the rank of the process that sent it
+         
+         for (int j = 0; j < chunck; j++){
+            allTidsAndPids[status.MPI_TAG*chunck] = recvBuf[j];
+         }
+         
       }
 
       printf("\nFinished to calculate ProximityCriteria points.\n");
 
-      writeToFile(OUTPUT_FILE, tidsAndPids, actualTs, tCount);
+      for (int i = 0; i < tCount; i++)
+      {
+         for (int j = 0; j < CONSTRAINT; j++)
+         {
+            printf("tidsAndPids[%d][%d] = %d\t",i,j,allTidsAndPids[i][j]);
+         }
+         printf("\n");
+         
+      }
+      
+
+      writeToFile(OUTPUT_FILE, allTidsAndPids, actualTs, tCount);
 
       for (int i = 0; i < tCount; i++){
          free(allTidsAndPids[i]);
