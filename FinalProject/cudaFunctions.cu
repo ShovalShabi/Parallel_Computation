@@ -144,11 +144,11 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
     // Finding all the Proximity Criteria of each distinct t value
     findProximityCriteria<<<numBlocks, THREADS_PER_BLOCK>>>(pointsArrDevice, numPoints, actualTsDevice, tidsAndPidsDevice, tCount, proximity, distance, minTIndex, maxTIndex);
 
-    // err = cudaGetLastError();
-    // if (err != cudaSuccess) {
-    //     fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
-    //     exit(EXIT_FAILURE);
-    // }
+    err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
+        exit(EXIT_FAILURE);
+    }
 
     // Synchronize to ensure all CUDA operations are completed
     cudaDeviceSynchronize();

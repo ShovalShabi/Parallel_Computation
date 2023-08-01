@@ -114,6 +114,7 @@ int main(int argc, char *argv[]) {
       MPI_Recv(&minTIndex,1,MPI_INT,MASTER_PROC,MPI_ANY_TAG,MPI_COMM_WORLD,&status);  //Recieving the minimum index of the actualTValues buffer to the process that need to calculate
       MPI_Recv(&maxTIndex,1,MPI_INT,MASTER_PROC,MPI_ANY_TAG,MPI_COMM_WORLD,&status);  //Recieving the maximum index of the actualTValues buffer to the process that need to calculate
    }
+   printf("Process %d is handling %d to %d\n",rank,minTIndex,maxTIndex);
 
    // The independent array that contains the pids of that apply ProximityCriteria under specific tid which is tidsAndPids[i] in size of CONSTRAINT
    tidsAndPids = (int**) malloc(sizeof(int*) * tCount);
@@ -135,16 +136,19 @@ int main(int argc, char *argv[]) {
    // Each process calculate its task on the GPU
    computeOnGPU(pointArr, numPoints, actualTs, tidsAndPids , tCount, proximity, distance, minTIndex, maxTIndex);
 
+
    // Collect the result from slave process
    if (rank == 0){
       allTidsAndPids = tidsAndPids; //The CriteriaPoints of the specified tids
 
       // Recieving the ids under specific t index
-      for (int i = chunck + 1; i < tCount; i++){       
+      printf("chunck size %d\n",chunck);
+      for (int i = maxTIndex + 1; i < tCount; i++){       
          int recvBuf[CONSTRAINT];
          //Matching the relevant tids and the pid of the Criteria points of each process
          MPI_Recv(recvBuf,CONSTRAINT,MPI_INT,MPI_ANY_SOURCE,i,MPI_COMM_WORLD,&status); //Reciving the other Criteria Points from the slave processes, the tag is the rank of the process that sent it
-         
+         printf("master got buffer tid[%d]\n",i);
+
          for (int j = 0; j < CONSTRAINT; j++){
             allTidsAndPids[i][j] = recvBuf[j];
          }
@@ -182,6 +186,7 @@ int main(int argc, char *argv[]) {
    // Send the data to master process
    else{
       for (int i = minTIndex; i <= maxTIndex; i++){
+         printf("Process %d sent tid[%d]\n",rank,i);
          MPI_Send(tidsAndPids[i],CONSTRAINT,MPI_INT,MASTER_PROC,i,MPI_COMM_WORLD); //Sending the other Criteria Points from the slave processes, the tag is the current index that beinfg requested by the master process
       }
 
