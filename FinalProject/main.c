@@ -147,7 +147,6 @@ int main(int argc, char *argv[]) {
          int recvBuf[CONSTRAINT];
          //Matching the relevant tids and the pid of the Criteria points of each process
          MPI_Recv(recvBuf,CONSTRAINT,MPI_INT,MPI_ANY_SOURCE,i,MPI_COMM_WORLD,&status); //Reciving the other Criteria Points from the slave processes, the tag is the rank of the process that sent it
-         printf("master got buffer tid[%d]\n",i);
 
          for (int j = 0; j < CONSTRAINT; j++){
             allTidsAndPids[i][j] = recvBuf[j];
@@ -186,7 +185,6 @@ int main(int argc, char *argv[]) {
    // Send the data to master process
    else{
       for (int i = minTIndex; i <= maxTIndex; i++){
-         printf("Process %d sent tid[%d]\n",rank,i);
          MPI_Send(tidsAndPids[i],CONSTRAINT,MPI_INT,MASTER_PROC,i,MPI_COMM_WORLD); //Sending the other Criteria Points from the slave processes, the tag is the current index that beinfg requested by the master process
       }
 
