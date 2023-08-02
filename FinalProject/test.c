@@ -1,8 +1,5 @@
 #include "myProto.h"
 
-// double calculateDistance(const Point p1,const Point p2, double t);
-
-
 /**
  * @brief Calculate the distance between two points at a given t value.
  * @param p1 The first point.
