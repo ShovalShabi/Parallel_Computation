@@ -1,4 +1,4 @@
-# Parallel_Computation - Assignment 3
+# Parallel_Computation - Final Project
 
 The code is dealing with several Parallel Computation methodologies, *CUDA* *OpenMp* threads and *MPI* processes.
 

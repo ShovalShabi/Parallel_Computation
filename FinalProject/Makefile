@@ -3,7 +3,7 @@ NUM_PROCESSES = 2
 build:
 	mpicxx -fopenmp -c main.c -o main.o
 	mpicxx -fopenmp -c cFunctions.c -o cFunctions.o
-	nvcc -I./Common  -gencode arch=compute_61,code=sm_61 -c cudaFunctions.cu -o cudaFunctions.o -lm
+	nvcc -I./Common  -gencode arch=compute_61,code=sm_61 -c cudaFunctions.cu -o cudaFunctions.o
 	mpicxx -fopenmp -o ProximityCriteria  main.o cFunctions.o cudaFunctions.o  -L/usr/local/cuda/lib -L/usr/local/cuda/lib64 -lcudart
 	mpicxx -c test.c -o test.o
 	mpicxx -fopenmp -o Test test.o cFunctions.o

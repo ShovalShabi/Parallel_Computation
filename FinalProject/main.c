@@ -40,8 +40,15 @@ int main(int argc, char *argv[]) {
    }
    
    // Master handling input file
-   if (rank == 0)
+   if (rank == 0){
       pointArr = readFromFile(&numPoints,&tCount,&proximity,&distance);
+
+      if (size >= tCount){  //Tcount is measured from 0 to tCount which is actually grater by one of what written in input.txt
+         perror("Cannot run more processes than actual number of tCount\n");
+         MPI_Abort(MPI_COMM_WORLD, __LINE__);
+      }
+
+   }
 
    // Broadcasting the total number of processes
    MPI_Bcast(&numPoints, 1, MPI_INT, MASTER_PROC, MPI_COMM_WORLD);
@@ -114,7 +121,6 @@ int main(int argc, char *argv[]) {
       MPI_Recv(&minTIndex,1,MPI_INT,MASTER_PROC,MPI_ANY_TAG,MPI_COMM_WORLD,&status);  //Recieving the minimum index of the actualTValues buffer to the process that need to calculate
       MPI_Recv(&maxTIndex,1,MPI_INT,MASTER_PROC,MPI_ANY_TAG,MPI_COMM_WORLD,&status);  //Recieving the maximum index of the actualTValues buffer to the process that need to calculate
    }
-   printf("Process %d is handling %d to %d\n",rank,minTIndex,maxTIndex);
 
    // The independent array that contains the pids of that apply ProximityCriteria under specific tid which is tidsAndPids[i] in size of CONSTRAINT
    tidsAndPids = (int**) malloc(sizeof(int*) * tCount);
@@ -132,7 +138,7 @@ int main(int argc, char *argv[]) {
          MPI_Abort(MPI_COMM_WORLD, __LINE__);
       }
    }
-   
+
    // Each process calculate its task on the GPU
    computeOnGPU(pointArr, numPoints, actualTs, tidsAndPids , tCount, proximity, distance, minTIndex, maxTIndex);
 
@@ -142,7 +148,6 @@ int main(int argc, char *argv[]) {
       allTidsAndPids = tidsAndPids; //The CriteriaPoints of the specified tids
 
       // Recieving the ids under specific t index
-      printf("chunck size %d\n",chunck);
       for (int i = maxTIndex + 1; i < tCount; i++){       
          int recvBuf[CONSTRAINT];
          //Matching the relevant tids and the pid of the Criteria points of each process
@@ -156,17 +161,7 @@ int main(int argc, char *argv[]) {
 
       printf("\nFinished to calculate ProximityCriteria points.\n");
 
-      // for (int i = 0; i < tCount; i++)
-      // {
-      //    for (int j = 0; j < CONSTRAINT; j++)
-      //    {
-      //       printf("tidsAndPids[%d][%d] = %d\t",i,j,allTidsAndPids[i][j]);
-      //    }
-      //    printf("\n");
-         
-      // }
-      
-
+   
       writeToFile(OUTPUT_FILE, allTidsAndPids, actualTs, tCount);
 
       printf("\nPlease open the created %s file to observe the results.\n",OUTPUT_FILE);
