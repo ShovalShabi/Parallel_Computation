@@ -41,7 +41,7 @@ __global__ void findProximityCriteria(Point* pointsArrDevice, int nCount, double
         int indexPoint = threadId % nCount;  // The index of the point within the buffer
         int indexT = threadId / nCount;      // The index of the current t value
 
-        if (tidAndPidsDevice[indexT* CONSTRAINT + CONSTRAINT -1] != -1)
+        if (atomicAdd(&tidAndPidsDevice[indexT* CONSTRAINT + CONSTRAINT -1],0)!= -1)
             return;
 
         // Making sure that the process calculates only the range of t values that are assigned to it
@@ -178,6 +178,13 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
         exit(EXIT_FAILURE);
     }
 
+    // Free device global memory
+    err = cudaFree(actualTsDevice);
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
+        exit(EXIT_FAILURE);
+    }
+
     // Copy the final tid and pid array from the device to the host
     for (int i = 0; i < numT; i++){
         
@@ -188,13 +195,6 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
             fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
             exit(EXIT_FAILURE);
         }
-    }
-
-    // Free device global memory
-    err = cudaFree(actualTsDevice);
-    if (err != cudaSuccess) {
-        fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
-        exit(EXIT_FAILURE);
     }
 
     // Free device global memory
