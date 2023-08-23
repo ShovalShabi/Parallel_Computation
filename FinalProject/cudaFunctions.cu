@@ -27,21 +27,21 @@ __device__ double calculateDistance(const Point p1,const Point p2, double t){
  * @param nCount Total number of points.
  * @param actualTsDevice Device array of actual t values.
  * @param tidAndPidsDevice Device array of tids and pids.
- * @param tCount Total number of t values.
+ * @param numT Total number of t values.
  * @param proximity Proximity value.
  * @param distance Distance value.
  * @param minTIndex Minimum t index.
  * @param maxTIndex Maximum t index.
  */
-__global__ void findProximityCriteria(Point* pointsArrDevice, int nCount, double* actualTsDevice, int* tidAndPidsDevice, int tCount, int proximity, double distance, int minTIndex, int maxTIndex) {
+__global__ void findProximityCriteria(Point* pointsArrDevice, int nCount, double* actualTsDevice, int* tidAndPidsDevice, int numT, int proximity, double distance, int minTIndex, int maxTIndex) {
     int threadId = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (threadId < nCount * tCount){
+    if (threadId < nCount * numT){
         int indexPoint = threadId % nCount;  // The index of the point within the buffer
         int indexT = threadId / nCount;  // The index of the current t value
 
         //Making sure that the process calculates only the range of t values that are assigned to it
-        if (minTIndex <= indexT && indexT <= maxTIndex){
+        if (minTIndex + indexT <= maxTIndex){
             int count = 0;
             for (int i = 0; i < nCount && i != indexPoint; i++){
                 double dist = calculateDistance(pointsArrDevice[indexPoint], pointsArrDevice[i], actualTsDevice[indexT]);
@@ -87,14 +87,14 @@ __global__ void intializeTidsAndPids(int* tidsAndPidsDevice){
  * @param numPoints Number of points.
  * @param actualTs Array of actual t values.
  * @param tidsAndPids 2D array of tids and pids.
- * @param tCount Number of t values.
+ * @param numT Number of t values.
  * @param proximity Proximity value.
  * @param distance Distance value.
  * @param minTIndex Minimum t index.
  * @param maxTIndex Maximum t index.
  * @return 0 on success.
  */
-int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAndPids , int tCount, int proximity, double distance, int minTIndex, int maxTIndex) {
+int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAndPids , int numT, int proximity, double distance, int minTIndex, int maxTIndex) {
 
     // Error code to check return values for CUDA calls
     cudaError_t err = cudaSuccess;
@@ -116,14 +116,14 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
 
     // Allocate memory on device for actual t values buffer on device
     double* actualTsDevice = NULL;
-    err = cudaMalloc((void**)&actualTsDevice, tCount * sizeof(double));
+    err = cudaMalloc((void**)&actualTsDevice, numT * sizeof(double));
     if (err != cudaSuccess) {
         fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
         exit(EXIT_FAILURE);
     }
     
     // Copy memory to device for actual t values buffer on device
-    err = cudaMemcpy(actualTsDevice, actualTs, tCount * sizeof(double), cudaMemcpyHostToDevice);
+    err = cudaMemcpy(actualTsDevice, actualTs, numT * sizeof(double), cudaMemcpyHostToDevice);
     if (err != cudaSuccess) {
         fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
         exit(EXIT_FAILURE);
@@ -131,19 +131,19 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
 
     // Allocate memory for the 2D array on the device
     int* tidsAndPidsDevice = NULL;
-    err = cudaMalloc((void**)&tidsAndPidsDevice, tCount * CONSTRAINT * sizeof(int));
+    err = cudaMalloc((void**)&tidsAndPidsDevice, numT * CONSTRAINT * sizeof(int));
     if (err != cudaSuccess) {
         fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
         exit(EXIT_FAILURE);
     }
 
-    intializeTidsAndPids <<<1, tCount * CONSTRAINT>>>(tidsAndPidsDevice);
+    intializeTidsAndPids <<<1, numT * CONSTRAINT>>>(tidsAndPidsDevice);
 
     
     //Calculation of the efficient number of blocks to CUDA threads (256 threads per block)
-    int numBlocks = ( numPoints * tCount + THREADS_PER_BLOCK -1 )/ THREADS_PER_BLOCK;
+    int numBlocks = ( numPoints * numT + THREADS_PER_BLOCK -1 )/ THREADS_PER_BLOCK;
     
-    findProximityCriteria<<<numBlocks, THREADS_PER_BLOCK>>>(pointsArrDevice, numPoints, actualTsDevice, tidsAndPidsDevice, tCount, proximity, distance, minTIndex, maxTIndex);
+    findProximityCriteria<<<numBlocks, THREADS_PER_BLOCK>>>(pointsArrDevice, numPoints, actualTsDevice, tidsAndPidsDevice, numT, proximity, distance, minTIndex, maxTIndex);
 
     err = cudaGetLastError();
     if (err != cudaSuccess) {
@@ -154,8 +154,15 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
     // Synchronize to ensure all CUDA operations are completed
     cudaDeviceSynchronize();
 
+    // Free device global memory
+    err = cudaFree(pointsArrDevice);
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
+        exit(EXIT_FAILURE);
+    }
+
     // Copy the final tid and pid array from the device to the host
-    for (int i = minTIndex; i <= maxTIndex; i++){
+    for (int i = 0; i < numT; i++){
         
         //Copying under each t index the ids of the Proximity Criteria points
         err =  cudaMemcpy(tidsAndPids[i],tidsAndPidsDevice + i * CONSTRAINT, CONSTRAINT * sizeof(int),cudaMemcpyDeviceToHost);
@@ -164,13 +171,6 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
             fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
             exit(EXIT_FAILURE);
         }
-    }
-
-    // Free device global memory
-    err = cudaFree(pointsArrDevice);
-    if (err != cudaSuccess) {
-        fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
-        exit(EXIT_FAILURE);
     }
 
     // Free device global memory
