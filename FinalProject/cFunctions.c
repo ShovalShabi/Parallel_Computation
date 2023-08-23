@@ -72,7 +72,7 @@ void buildTcountArr(double* tArr, int tCount){
  * @param actualTs Array of actual t values.
  * @param tCount Total number of t values.
  */
-void writeToFile(const char* fileName, int** tidsAndPids, double* actualTs, int tCount){
+void writeToFile(const char* fileName, int* tidsAndPids, double* actualTs, int tCount){
     int printed = 0;
     FILE* file;
 
@@ -94,9 +94,10 @@ void writeToFile(const char* fileName, int** tidsAndPids, double* actualTs, int 
 
     // Counting the number of Prxomity Criteria points under each t index
     #pragma omp parallel for shared(proxCounter)
-    for (int i = 0; i < tCount; i++){
+    for (int i = 0; i < tCount * CONSTRAINT; i++){
+        
         for (int j = 0; j < CONSTRAINT; j++){
-            if (tidsAndPids[i][j] > 0)
+            if (tidsAndPids[i * CONSTRAINT + j] > 0)
                 proxCounter[i]++;
         }
     }
@@ -113,7 +114,7 @@ void writeToFile(const char* fileName, int** tidsAndPids, double* actualTs, int 
         for (int i = 0; i < tCount; i++){
             if(proxCounter[i] == CONSTRAINT){
                 for (int j = 0; j < CONSTRAINT; j++){
-                    fprintf(file,"pointId=%d ",tidsAndPids[i][j]);
+                    fprintf(file,"pointId=%d ",tidsAndPids[i * CONSTRAINT + j]);
                 }
                 fprintf(file,"are ProximityCriteria at t = %lf\n",actualTs[i]);
             }            

@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
-#include <cstring>
 
 #define MASTER_PROC 0
 #define CONSTRAINT 3
@@ -32,4 +31,4 @@ void buildTcountArr(double* tArr, int tCount);
 
 int computeOnGPU(int N, int K, double D, int chunkSize, double *tValues, Point *allPoints, int *proximities);
 
-void writeToFile(const char* fileName, int** tidsAndPids, double* actualTs, int tCount);
+void writeToFile(const char* fileName, int* tidsAndPids, double* actualTs, int tCount);

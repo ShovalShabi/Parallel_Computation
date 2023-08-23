@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
     int minTIndex, maxTIndex; // The start index and index to each process to check t values
     double distance;          // The received distance
     double *actualTs;         // The actual values of the Ts
-    int** proximities;        // Array to store the proximity criteria
+    int* proximities;        // Array to store the proximity criteria
     
     // Read data from file
     pointArr = readFromFile(&numPoints, &tCount, &proximity, &distance);
@@ -52,27 +52,17 @@ int main(int argc, char *argv[]) {
     // Build array of t values
     buildTcountArr(actualTs, tCount);
     
-    proximities = (int**)malloc(sizeof(int*) * tCount);
+    proximities = (int*)malloc(sizeof(int) * tCount * CONSTRAINT);
     
     if (!proximities) {
         perror("Allocating memory has failed\n");
         exit(1);
     }
     
-    // Initialize proximities array
-    for (int i = 0; i < tCount; i++) {
-        proximities[i] = (int*)malloc(sizeof(int) * CONSTRAINT);
-        
-        if (!proximities[i]) {
-            perror("Allocating memory has failed\n");
-            exit(1);
-        }
-        
-        for (int j = 0; j < CONSTRAINT; j++) {
-            proximities[i][j] = -1;
-        }
+    for (int j = 0; j < CONSTRAINT * tCount; j++) {
+        proximities[j] = -1;
     }
-    
+
     proxCounter = (int*)calloc(tCount, sizeof(int));
     
     if (!proxCounter) {
@@ -93,12 +83,12 @@ int main(int argc, char *argv[]) {
             
             if (countPerT == proximity && proxCounter[i] < CONSTRAINT) {
                 for (int h = 0; h < CONSTRAINT; h++) {
-                    if (pointArr[j].id == proximities[i][h]) {
+                    if (pointArr[j].id == proximities[i * CONSTRAINT + h]) {
                         break;
                     }
                     
-                    if (proximities[i][h] < 0) {
-                        proximities[i][h] = pointArr[j].id;
+                    if (proximities[i * CONSTRAINT + h] < 0) {
+                        proximities[i * CONSTRAINT + h] = pointArr[j].id;
                         proxCounter[i]++;
                         break;
                     }
@@ -121,11 +111,6 @@ int main(int argc, char *argv[]) {
     // Free allocated memory
     free(proxCounter);
     free(pointArr);
-
-    for (int i = 0; i < tCount; i++) {
-        free(proximities[i]);
-    }
-
     free(proximities);
     free(actualTs);
 

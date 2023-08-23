@@ -21,8 +21,8 @@ int main(int argc, char *argv[]) {
    int minTIndex, maxTIndex; // The start index and index to each process to check t values
    double distance;  // The recieved distnace
    double* actualTs; // The actual values of the Ts
-   int** allTidsAndPids; // A two dimensional array that holds the relevant ids of point who correspond with ProximityCriteria (exposed to master only)
-   int** tidsAndPids;  // The same as above, this pointer is independent to each process
+   int* allTidsAndPids; // A two dimensional array that holds the relevant ids of point who correspond with ProximityCriteria (exposed to master only)
+   int* tidsAndPids;  // The same as above, this pointer is independent to each process
 
 
    // Intiallizing MPI
@@ -127,37 +127,23 @@ int main(int argc, char *argv[]) {
    }
 
    // The independent array that contains the pids of that apply ProximityCriteria under specific tid which is tidsAndPids[i] in size of CONSTRAINT
-   tidsAndPids = (int**) malloc(sizeof(int*) * numT);
+   tidsAndPids = (int*) malloc(sizeof(int) * numT * CONSTRAINT);
 
    if(!tidsAndPids){
       perror("Allocating memory has been failed\n");
       MPI_Abort(MPI_COMM_WORLD, __LINE__);
    }
-
-   for (int i = 0; i < numT; i++){
-      tidsAndPids[i] = (int*) malloc (sizeof(int)*CONSTRAINT);
-      if(!tidsAndPids){
-         perror("Allocating memory has been failed\n");
-         MPI_Abort(MPI_COMM_WORLD, __LINE__);
-      }
-      // printf("Process %d allocated tidAndPids at %d\n",rank,i);
-
-      // for (int j = 0; j < CONSTRAINT; j++)
-      // {
-      //    printf("tidsPids[%d][%d]=%d\n",i,j,tidsAndPids[i][j]);
-      // }
-   }
    
 
    // Each process calculate its task on the GPU
    // computeOnGPU(pointArr, numPoints, actualTs, tidsAndPids , numT, proximity, distance, minTIndex, maxTIndex);
-   computeOnGPU(numPoints, proximity, distance, numT, actualTs, pointArr, (int *) tidsAndPids);
+   computeOnGPU(numPoints, proximity, distance, numT, actualTs, pointArr, tidsAndPids);
 
 
 
    // Collect the result from slave process
    if (rank == 0){
-      allTidsAndPids = (int**) malloc(sizeof(int*) * tCount);
+      allTidsAndPids = (int*) malloc(sizeof(int) * tCount);
 
       if(!allTidsAndPids){
          perror("Allocating memory has been failed\n");
@@ -165,27 +151,16 @@ int main(int argc, char *argv[]) {
       }
 
       //The CriteriaPoints of the specified tids of the master
-      for (int i = 0; i <= maxTIndex; i++){
+      for (int i = 0; i <= numT * CONSTRAINT; i++){
          allTidsAndPids[i] = tidsAndPids[i];
       }
 
       // Recieving the ids under specific t index
-      for (int i = maxTIndex + 1; i < tCount; i++){       
-         int recvBuf[CONSTRAINT];
+      for (int i = maxTIndex + 1; i < tCount; i+=chunck){       
+
          //Matching the relevant tids and the pid of the Criteria points of each process
-         MPI_Recv(recvBuf,CONSTRAINT,MPI_INT,MPI_ANY_SOURCE,i,MPI_COMM_WORLD,&status); //Reciving the other Criteria Points from the slave processes, the tag is the rank of the process that sent it
-
-         for (int j = 0; j < CONSTRAINT; j++){
-            allTidsAndPids[i] = (int*) malloc(sizeof(int) * CONSTRAINT);
-
-            if(!allTidsAndPids[i]){
-               perror("Allocating memory has been failed\n");
-               MPI_Abort(MPI_COMM_WORLD, __LINE__);
-            }
-            allTidsAndPids[i][j] = recvBuf[j];
-         }
-         // printf("got tIndex = %d\n",i);
-         
+         MPI_Recv(&allTidsAndPids[i],CONSTRAINT*chunck,MPI_INT,MPI_ANY_SOURCE,i,MPI_COMM_WORLD,&status); //Reciving the other Criteria Points from the slave processes, the tag is the rank of the process that sent it  
+      
       }
 
       printf("\nFinished to calculate ProximityCriteria points.\n");
@@ -194,10 +169,6 @@ int main(int argc, char *argv[]) {
       writeToFile(OUTPUT_FILE, allTidsAndPids, actualTs, tCount);
 
       printf("\nPlease open the created %s file to observe the results.\n",OUTPUT_FILE);
-
-      for (int i = 0; i < tCount; i++){
-         free(allTidsAndPids[i]);
-      }
 
       free(allTidsAndPids);
 
@@ -208,14 +179,8 @@ int main(int argc, char *argv[]) {
 
    // Send the data to master process
    else{
-      for (int i = 0, tag = minTIndex; i < numT, tag <= maxTIndex; i++, tag++){
-         MPI_Send(tidsAndPids[i],CONSTRAINT,MPI_INT,MASTER_PROC,tag,MPI_COMM_WORLD); //Sending the other Criteria Points from the slave processes, the tag is the current index that beinfg requested by the master process
-      }
 
-      for (int i = 0; i < numT; i++){
-         free(tidsAndPids[i]);
-      }
-      
+      MPI_Send(tidsAndPids,CONSTRAINT * numT,MPI_INT,MASTER_PROC,minTIndex,MPI_COMM_WORLD); //Sending the other Criteria Points from the slave processes, the tag is the current index that beinfg requested by the master process
       free(tidsAndPids);
       
    }
