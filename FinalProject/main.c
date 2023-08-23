@@ -133,17 +133,21 @@ int main(int argc, char *argv[]) {
       perror("Allocating memory has been failed\n");
       MPI_Abort(MPI_COMM_WORLD, __LINE__);
    }
-   
 
+   for (int i = 0; i < numT*CONSTRAINT; i++)
+   {
+      tidsAndPids[i] = -1 ;
+   }
+
+ 
    // Each process calculate its task on the GPU
    // computeOnGPU(pointArr, numPoints, actualTs, tidsAndPids , numT, proximity, distance, minTIndex, maxTIndex);
-   computeOnGPU(numPoints, proximity, distance, numT, actualTs, pointArr, tidsAndPids);
-
+   computeOnGPU(numPoints, proximity, distance, numT*CONSTRAINT, actualTs, pointArr, tidsAndPids);
 
 
    // Collect the result from slave process
    if (rank == 0){
-      allTidsAndPids = (int*) malloc(sizeof(int) * tCount);
+      allTidsAndPids = (int*) malloc(sizeof(int) * tCount * CONSTRAINT);
 
       if(!allTidsAndPids){
          perror("Allocating memory has been failed\n");
@@ -156,11 +160,15 @@ int main(int argc, char *argv[]) {
       }
 
       // Recieving the ids under specific t index
-      for (int i = maxTIndex + 1; i < tCount; i+=chunck){       
-
+      for (int i = maxTIndex + 1; i < tCount; i+=chunck){
          //Matching the relevant tids and the pid of the Criteria points of each process
-         MPI_Recv(&allTidsAndPids[i],CONSTRAINT*chunck,MPI_INT,MPI_ANY_SOURCE,i,MPI_COMM_WORLD,&status); //Reciving the other Criteria Points from the slave processes, the tag is the rank of the process that sent it  
-      
+         MPI_Recv(allTidsAndPids+i*CONSTRAINT,CONSTRAINT*chunck,MPI_INT,MPI_ANY_SOURCE,i,MPI_COMM_WORLD,&status); //Reciving the other Criteria Points from the slave processes, the tag is the rank of the process that sent it  
+         
+
+      }
+
+      for (int j = 0; j < tCount * CONSTRAINT; j++){
+         printf("allTidsAndPids[%d] = %d\n",j,allTidsAndPids[j]);
       }
 
       printf("\nFinished to calculate ProximityCriteria points.\n");
@@ -179,7 +187,7 @@ int main(int argc, char *argv[]) {
 
    // Send the data to master process
    else{
-
+      
       MPI_Send(tidsAndPids,CONSTRAINT * numT,MPI_INT,MASTER_PROC,minTIndex,MPI_COMM_WORLD); //Sending the other Criteria Points from the slave processes, the tag is the current index that beinfg requested by the master process
       free(tidsAndPids);
       

@@ -8,7 +8,7 @@
 #define MASTER_PROC 0
 #define CONSTRAINT 3
 #define THREADS_PER_BLOCK 256
-#define INPUT_FILE "input.txt"
+#define INPUT_FILE "Large_input.txt"
 #define OUTPUT_FILE "output.txt"
 #define TEST_OUTPUT_FILE "testOutput.txt"
 
