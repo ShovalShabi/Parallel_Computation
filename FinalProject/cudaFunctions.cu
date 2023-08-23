@@ -10,15 +10,16 @@
  * @return Distance between the two points.
  */
 __device__ double calculateDistance(const Point p1,const Point p2, double t){
-    double xP1, yP1, xP2, yP2;
+    double xP1 = ((p1.x2 - p1.x1) / 2) * __sinf(t * M_PI / 2) + (p1.x2 + p1.x1) / 2;
+    double yP1 = p1.a * xP1 + p1.b;
 
-    xP1 = ((p1.x2 - p1.x1) / 2 ) * sin (t*M_PI /2) + (p1.x2 + p1.x1) / 2; 
-    yP1 = p1.a*xP1 + p1.b;
+    double xP2 = ((p2.x2 - p2.x1) / 2) * __sinf(t * M_PI / 2) + (p2.x2 + p2.x1) / 2;
+    double yP2 = p2.a * xP2 + p2.b;
 
-    xP2 = ((p2.x2 - p2.x1) / 2 ) * sin (t*M_PI /2) + (p2.x2 + p2.x1) / 2; 
-    yP2 = p2.a*xP2 + p2.b;
+    double dx = xP2 - xP1;
+    double dy = yP2 - yP1;
 
-    return sqrt(pow(xP2-xP1,2) + pow(yP2-yP1,2));
+    return sqrtf(dx * dx + dy * dy);
 }
 
 /**
@@ -36,33 +37,45 @@ __device__ double calculateDistance(const Point p1,const Point p2, double t){
 __global__ void findProximityCriteria(Point* pointsArrDevice, int nCount, double* actualTsDevice, int* tidAndPidsDevice, int numT, int proximity, double distance, int minTIndex, int maxTIndex) {
     int threadId = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (threadId < nCount * numT){
+    if (threadId < nCount * numT) {
         int indexPoint = threadId % nCount;  // The index of the point within the buffer
-        int indexT = threadId / nCount;  // The index of the current t value
+        int indexT = threadId / nCount;      // The index of the current t value
 
-        //Making sure that the process calculates only the range of t values that are assigned to it
-        if (minTIndex + indexT <= maxTIndex){
+        if (tidAndPidsDevice[indexT* CONSTRAINT + CONSTRAINT -1] != -1)
+            return;
+
+        // Making sure that the process calculates only the range of t values that are assigned to it
+        if (minTIndex + indexT <= maxTIndex) {
+
+            Point currentPoint = pointsArrDevice[indexPoint];
+            double currentT = actualTsDevice[indexT];
+
             int count = 0;
-            for (int i = 0; i < nCount && i != indexPoint; i++){
-                double dist = calculateDistance(pointsArrDevice[indexPoint], pointsArrDevice[i], actualTsDevice[indexT]);
 
-                if (dist <= distance)
-                    count++;
-                
-                if (count == proximity)
-                    break;  
+            for (int i = 0; i < nCount; i++) {
+                if (i != indexPoint) {
+                    Point otherPoint = pointsArrDevice[i];
+
+                    double dist = calculateDistance(currentPoint, otherPoint, currentT);
+
+                    if (dist <= distance)
+                        count++;
+
+                    if (count == proximity)
+                        break;
+                }
             }
 
-            //The exmined point reached K neighbors which is proximity values
-            if (count == proximity){
-                for (int j = 0; j < CONSTRAINT; j++){
-                    if (tidAndPidsDevice[indexT * CONSTRAINT + j] == pointsArrDevice[indexPoint].id)
+            // The examined point reached K neighbors which is proximity values
+            if (count == proximity) {
+                int startIndex = indexT * CONSTRAINT;
+                for (int j = startIndex; j < startIndex + CONSTRAINT; j++) {
+                    int tidAndPid = tidAndPidsDevice[j];
+                    if (tidAndPid == currentPoint.id)
                         break;
-                    
-                    if(tidAndPidsDevice[indexT * CONSTRAINT + j] < 0){
-                        atomicExch(&tidAndPidsDevice[indexT * CONSTRAINT + j],pointsArrDevice[indexPoint].id);
+
+                    if (tidAndPid < 0 && atomicCAS(&tidAndPidsDevice[startIndex + j], -1, currentPoint.id) == -1)
                         break;
-                    }    
                 }
             }
         }
@@ -74,11 +87,10 @@ __global__ void findProximityCriteria(Point* pointsArrDevice, int nCount, double
  * @param tidsAndPidsDevice Device array of tids and pids.
  */
 __global__ void intializeTidsAndPids(int* tidsAndPidsDevice){
-    int threadId = threadIdx.x;
+    int threadId = blockIdx.x;
 
     tidsAndPidsDevice[threadId] = -1;
 }
-
 
 
 /**
@@ -137,9 +149,14 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
         exit(EXIT_FAILURE);
     }
 
-    intializeTidsAndPids <<<1, numT * CONSTRAINT>>>(tidsAndPidsDevice);
+    intializeTidsAndPids <<< numT * CONSTRAINT, 1 >>>(tidsAndPidsDevice);
 
-    
+    err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
+        exit(EXIT_FAILURE);
+    }
+
     //Calculation of the efficient number of blocks to CUDA threads (256 threads per block)
     int numBlocks = ( numPoints * numT + THREADS_PER_BLOCK -1 )/ THREADS_PER_BLOCK;
     
@@ -147,7 +164,7 @@ int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAnd
 
     err = cudaGetLastError();
     if (err != cudaSuccess) {
-        fprintf(stderr, "Error in line %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
+        fprintf(stderr, "Error in line** %d (error code %s)!\n", __LINE__, cudaGetErrorString(err));
         exit(EXIT_FAILURE);
     }
 

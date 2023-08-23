@@ -111,7 +111,6 @@ void writeToFile(const char* fileName, int** tidsAndPids, double* actualTs, int 
     
     if (printed){
         for (int i = 0; i < tCount; i++){
-            printf("proxCounter[%d]=%d, with tValue=%f\n",i,proxCounter[i],actualTs[i]);
             if(proxCounter[i] == CONSTRAINT){
                 for (int j = 0; j < CONSTRAINT; j++){
                     fprintf(file,"pointId=%d ",tidsAndPids[i][j]);
