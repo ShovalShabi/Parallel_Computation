@@ -92,9 +92,6 @@ int main(int argc, char *argv[]) {
       }
    }
 
-   // // Broadcasting all the actual t values
-   // MPI_Bcast(actualTs, tCount, MPI_DOUBLE, MASTER_PROC, MPI_COMM_WORLD);
-
    // Broadcasting all points
    MPI_Bcast(pointArr, numPoints, MPI_POINT, MASTER_PROC, MPI_COMM_WORLD);
 
@@ -139,15 +136,23 @@ int main(int argc, char *argv[]) {
 
    for (int i = 0; i < numT; i++){
       tidsAndPids[i] = (int*) malloc (sizeof(int)*CONSTRAINT);
-
       if(!tidsAndPids){
          perror("Allocating memory has been failed\n");
          MPI_Abort(MPI_COMM_WORLD, __LINE__);
       }
+      // printf("Process %d allocated tidAndPids at %d\n",rank,i);
+
+      // for (int j = 0; j < CONSTRAINT; j++)
+      // {
+      //    printf("tidsPids[%d][%d]=%d\n",i,j,tidsAndPids[i][j]);
+      // }
    }
+   
 
    // Each process calculate its task on the GPU
-   computeOnGPU(pointArr, numPoints, actualTs, tidsAndPids , numT, proximity, distance, minTIndex, maxTIndex);
+   // computeOnGPU(pointArr, numPoints, actualTs, tidsAndPids , numT, proximity, distance, minTIndex, maxTIndex);
+   computeOnGPU(numPoints, proximity, distance, numT, actualTs, pointArr, (int *) tidsAndPids);
+
 
 
    // Collect the result from slave process
