@@ -39,7 +39,7 @@ __device__ void addProxPoint(int startingIndex, int *tidsAndPidsDevice, int poin
 }
 
 /**
- * @brief this function will calcluate for each tValue if [there are Proximity Criteria points.
+ * @brief this function will calcluate for each tValue if there are Proximity Criteria points.
  * Each thread will get a specific point and will verify that is has proximity with the other points .
  * Before getting to calculations htere is nedd to check if the spot under the specific tValues is already taken if it does then the thread exits the function.
  * @note CONSTRAINT is the number of deisred Proxmity Criteria points under specific t value.
@@ -120,11 +120,10 @@ void copyMemory(void *dest, void *src, size_t size, cudaMemcpyKind direction){
  */
 int computeOnGPU(int numPoints, int proximtity, double distance, int numT, double* actualTValues, Point* pointsArr, int* tidsAndPids)
 {
-    printf("N = %d K = %d D = %lf chunck = %d\n",numPoints,proximtity,distance,numT);
     cudaError_t err = cudaSuccess;
 
     int threadPerBlock = THREADS_PER_BLOCK;
-    int blocksPerGrid = (numPoints + threadPerBlock - 1) / threadPerBlock;
+    int numBlocks = (numPoints + threadPerBlock - 1) / threadPerBlock;  //Measured by the number of points
     Point* pointsArrDevice = NULL;
     int* tidsAndPidsDevice = NULL;
 
@@ -140,7 +139,7 @@ int computeOnGPU(int numPoints, int proximtity, double distance, int numT, doubl
     /*for each tvalue we will send it to GPU to compute the data and save it on proximites array*/
     for (int i = 0; i < numT; i++)
     {
-        calculateProximity<<<blocksPerGrid, threadPerBlock>>>(pointsArrDevice, numPoints, actualTValues[i], distance, tidsAndPidsDevice, proximtity, i);
+        calculateProximity<<<numBlocks, threadPerBlock>>>(pointsArrDevice, numPoints, actualTValues[i], distance, tidsAndPidsDevice, proximtity, i);
         err = cudaGetLastError();
         if (err != cudaSuccess){
             fprintf(stderr, "Failed to lanch calculateProximity kernel. -%s\n", cudaGetErrorString(err));
