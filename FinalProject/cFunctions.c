@@ -98,7 +98,6 @@ void writeToFile(const char* fileName, int* tidsAndPids, double* actualTs, int t
 
     int* proxCounter = (int*) calloc(tCount,sizeof(int));
 
-
     if(!proxCounter){
         perror("Allocating memory has failed\n");
         fclose(file);
@@ -107,10 +106,10 @@ void writeToFile(const char* fileName, int* tidsAndPids, double* actualTs, int t
 
     // Counting the number of Prxomity Criteria points under each t index
     #pragma omp parallel for shared(proxCounter)
-    for (int i = 0; i < tCount * CONSTRAINT; i++){
+    for (int i = 0; i < tCount; i++){
         
-        for (int j = 0; j < CONSTRAINT; j++){
-            if (tidsAndPids[i * CONSTRAINT + j] > 0)
+        for (int j = i*CONSTRAINT; j < i * CONSTRAINT + CONSTRAINT; j++){
+            if (tidsAndPids[j] > 0)
                 proxCounter[i]++;
         }
     }
@@ -121,7 +120,6 @@ void writeToFile(const char* fileName, int* tidsAndPids, double* actualTs, int t
             break;
         }
     }
-
     
     if (printed){
         for (int i = 0; i < tCount; i++){
@@ -136,7 +134,7 @@ void writeToFile(const char* fileName, int* tidsAndPids, double* actualTs, int t
     else
         fprintf(file,"There are no ProximtyCriteria Points!\n");
     
-    // free(proxCounter);
+    free(proxCounter);
     fclose(file);
     printf("\nPrinted to file %s successfully!\n",fileName);
 }
