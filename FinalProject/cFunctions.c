@@ -66,6 +66,19 @@ void buildTcountArr(double* tArr, int tCount){
 }
 
 /**
+ * @brief Intiallize the tidsAndPids array to -1.
+ * @param tArr Array to store the proximity crietria point ids.
+ * @param tCount Total number of t indexes.
+ */
+void initiallizeTidsAndPids(int* tidsAndPids, int size){
+    #pragma omp parallel for shared(tidsAndPids)
+    for (int i = 0; i < size*CONSTRAINT; i++){
+        tidsAndPids[i] = - 1;
+    }
+}
+
+
+/**
  * @brief Write the results to a file.
  * @param fileName Name of the output file.
  * @param tidsAndPids Array of tids and pids.
@@ -123,7 +136,6 @@ void writeToFile(const char* fileName, int* tidsAndPids, double* actualTs, int t
     else
         fprintf(file,"There are no ProximtyCriteria Points!\n");
     
-    printf("here!!\n");
     // free(proxCounter);
     fclose(file);
     printf("\nPrinted to file %s successfully!\n",fileName);

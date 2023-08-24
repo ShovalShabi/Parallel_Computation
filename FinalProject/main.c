@@ -134,15 +134,13 @@ int main(int argc, char *argv[]) {
       MPI_Abort(MPI_COMM_WORLD, __LINE__);
    }
 
-   for (int i = 0; i < numT*CONSTRAINT; i++)
-   {
-      tidsAndPids[i] = -1 ;
-   }
+   //Initializing the tidsAndPids array for further calculation
+   initiallizeTidsAndPids(tidsAndPids, numT);
 
  
    // Each process calculate its task on the GPU
    // computeOnGPU(pointArr, numPoints, actualTs, tidsAndPids , numT, proximity, distance, minTIndex, maxTIndex);
-   computeOnGPU(numPoints, proximity, distance, numT*CONSTRAINT, actualTs, pointArr, tidsAndPids);
+   computeOnGPU(numPoints, proximity, distance, numT, actualTs, pointArr, tidsAndPids);
 
 
    // Collect the result from slave process
@@ -167,13 +165,9 @@ int main(int argc, char *argv[]) {
 
       }
 
-      for (int j = 0; j < tCount * CONSTRAINT; j++){
-         printf("allTidsAndPids[%d] = %d\n",j,allTidsAndPids[j]);
-      }
-
       printf("\nFinished to calculate ProximityCriteria points.\n");
 
-   
+      //Writing the data to an output file
       writeToFile(OUTPUT_FILE, allTidsAndPids, actualTs, tCount);
 
       printf("\nPlease open the created %s file to observe the results.\n",OUTPUT_FILE);

@@ -27,8 +27,10 @@ Point* readFromFile(int* numPoints, int* tCount, int* proximity, double* distanc
 
 void buildTcountArr(double* tArr, int tCount);
 
+void initiallizeTidsAndPids(int* tidsAndPids, int size);
+
 //int computeOnGPU(Point* pointArr, int numPoints, double* actualTs, int** tidsAndPids , int numT, int proximity, double distance, int minTIndex, int maxTIndex);
 
-int computeOnGPU(int N, int K, double D, int chunkSize, double *tValues, Point *allPoints, int *proximities);
+int computeOnGPU(int numPoints, int proximtity, double distance, int numT, double* actualTValues, Point* pointsArr, int* tidsAndPids);
 
 void writeToFile(const char* fileName, int* tidsAndPids, double* actualTs, int tCount);

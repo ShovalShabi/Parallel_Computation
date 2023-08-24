@@ -3,13 +3,13 @@
 #include "myProto.h"
 
 /**
- * @brief this function will calc the distance between two points
- * @param p1 Struct that points on one point.
- * @param p2 Struct that points on the secound point.
- * @param t The current tvalue
+ * @brief Calculate the distance between two points.
+ * @param p1 First point.
+ * @param p2 Second point.
+ * @param t T value.
+ * @return Distance between the two points.
  */
-__device__ double calcDistance(const Point p1, const Point p2, double t)
-{
+__device__ double calcDistance(const Point p1, const Point p2, double t){
     double x1 = ((p1.x2 - p1.x1) / 2) * __sinf(t * M_PI / 2) + ((p1.x2 + p1.x1) / 2);
     double y1 = p1.a * x1 + p1.b;
 
@@ -19,95 +19,86 @@ __device__ double calcDistance(const Point p1, const Point p2, double t)
     return sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2));
 }
 /**
- * @brief In this function points that have at least K points that the distance less then D will enter to the function
- * and update the array of results.
+ * @brief This function insert an id of Proximity Criteria point that has at least K neighbours with distance less then D
  * @param startingIndex the current tvalue in the round
- * @param proximites array of results
+ * @param tidsAndPidsDevice array of results
  * @param pointId A point that satisfies the condition
  */
-__device__ void updateProximitePoints(int startingIndex, int *proximites, int pointId)
-{
-    for (int i = 0; i < CONSTRAINT; i++)
-    {
+__device__ void addProxPoint(int startingIndex, int *tidsAndPidsDevice, int pointId){
+    for (int i = 0; i < CONSTRAINT; i++){
         int index = startingIndex * CONSTRAINT + i;
-        int currentVal = proximites[index];
-        if (currentVal == -1)
-        {
+        int currentVal = tidsAndPidsDevice[index];
+        if (currentVal == -1){
             int expected = -1;
             int desired = pointId;
 
-            if (atomicCAS(&proximites[index], expected, desired) == expected) /*Fill the proximites[index] in atomic way*/
-            {
+            if (atomicCAS(&tidsAndPidsDevice[index], expected, desired) == expected) /*Atomic compare ans swap*/
                 return;
-            }
         }
     }
 }
+
 /**
- * @brief this function will calcluate for each Tvalue[tIndex] Checks if it exists a Proximity Criteria.
- * Each thread will get point and check with other points if there is another point if the distance is smaller then D.
- * but before checking it, we will check the last poistion of d_proximities[tIndex * CONSTRAINT + CONSTRAINT - 1].
- * explanation: All CONSTRAINT cells represent K points that Proximity Criteria. if there at Least K points fulfill the condition the points will
- * enter to the d_proximities.
- * Note: if one of the threads fill the last point in  d_proximities[tIndex * CONSTRAINT + CONSTRAINT - 1] the other threads will not continue
- * calclute the distance.
- * @param d_points array of all N points
- * @param N numbers of points
- * @param tValue current tValue
- * @param D max distance to check
- * @param d_proximites array of result
- * @param K need at least K points that fulfill the condition of Poximity Criteria
- * @param tIndex the current t in the for loop
-
-
+ * @brief this function will calcluate for each tValue if [there are Proximity Criteria points.
+ * Each thread will get a specific point and will verify that is has proximity with the other points .
+ * Before getting to calculations htere is nedd to check if the spot under the specific tValues is already taken if it does then the thread exits the function.
+ * @note CONSTRAINT is the number of deisred Proxmity Criteria points under specific t value.
+ * @param pointsArrDevice array of all N points
+ * @param numPoints numbers of points
+ * @param currentTvalue current tValue
+ * @param distance max distance to check
+ * @param tidsAndPidsDevice array of result
+ * @param proximity need at least K points that fulfill the condition of Poximity Criteria
+ * @param currentTindex the current t witihin the for loop
 */
-__global__ void calculateProximity(Point *d_points, int N, double tValue, double D, int *d_proximities, double K, int tIndex)
-{
+__global__ void calculateProximity(Point *pointsArrDevice, int numPoints, double currentTvalue, double distance, int* tidsAndPidsDevice, double proximity, int currentTindex){
     int tid = blockDim.x * blockIdx.x + threadIdx.x;
     int counter = 0;
-    if (tid < N && atomicAdd(&d_proximities[tIndex * CONSTRAINT + CONSTRAINT - 1], 0) == -1)
-    {
-        for (int i = 0; i < N; i++)
-        {
 
-            if (atomicAdd(&d_proximities[tIndex * CONSTRAINT + CONSTRAINT - 1], 0) != -1)
-            {
+    if (tid < numPoints && atomicAdd(&tidsAndPidsDevice[currentTindex * CONSTRAINT + CONSTRAINT - 1], 0) == -1){
+
+        for (int i = 0; i < numPoints; i++){
+
+            //Checking if the last position under specific t index is already taken, -1 is free otherwise taken
+            if (atomicAdd(&tidsAndPidsDevice[currentTindex * CONSTRAINT + CONSTRAINT - 1], 0) != -1)
                 return;
-            }
 
-            if (d_points[i].id != d_points[tid].id && calcDistance(d_points[tid], d_points[i], tValue) < D)
-            {
+            //The tested point passed the validations to ProximityCriteria
+            if (pointsArrDevice[i].id != pointsArrDevice[tid].id && calcDistance(pointsArrDevice[tid], pointsArrDevice[i], currentTvalue) < distance){
                 counter++;
-                if (counter == K)
-                {
-
-                    int pointId = d_points[tid].id;                        /*This point is proximity*/
-                    updateProximitePoints(tIndex, d_proximities, pointId); /*0,proximites,point that have 3 points*/
+                if (counter == proximity)
                     break;
-                }
             }
+        }
+        //Adding the Proximity Criteria the tidsAndPids array
+        if (counter == proximity){
+            int pointId = pointsArrDevice[tid].id;                      /*Reriving the Proximity Criteria id*/
+            addProxPoint(currentTindex, tidsAndPidsDevice, pointId); /*Update the tidsAndPidsArray on proximity Criteria Point that have K neighbours*/
         }
     }
 }
 
-void allocateMemDevice(void **ptr, size_t size)
-{
-    cudaError_t err = cudaMalloc(ptr, size); /*Allocate mem on device*/
-    if (err != cudaSuccess)
-    {
+
+/**
+ * @param buf Buffer for memory allocation
+ * @param size Amount of data that need to copy(Bytes)
+ */
+void allocateMemoryOnDevice(void **buf, size_t size){
+    cudaError_t err = cudaMalloc(buf, size);
+    if (err != cudaSuccess){
         fprintf(stderr, "Cannot to allocate memory on device. -%s\n", cudaGetErrorString(err));
         exit(EXIT_FAILURE);
     }
 }
+
 /**
- * @param dest Pointer to the dest in device / host memory
- * @param src  Pointer to the src in host / device memory
- * @param size How much data need to copy(Bytes)
- * @param direction Which direction to copy the mem(host-> device) | (device -> host)
+ * @param dest Pointer to the destination buffer
+ * @param src  Pointer to the source buffer
+ * @param size Amount of data that need to copy(Bytes)
+ * @param direction Which direction to copy the memory
  */
-void copyMemory(void *dest, void *src, size_t size, cudaMemcpyKind direction)
-{
-    /*Copy mem from device to host OR host to device depending on the direction*/
+void copyMemory(void *dest, void *src, size_t size, cudaMemcpyKind direction){
+
     cudaError_t err = cudaMemcpy(dest, src, size, direction);
     if (err != cudaSuccess)
     {
@@ -116,57 +107,57 @@ void copyMemory(void *dest, void *src, size_t size, cudaMemcpyKind direction)
     }
 }
 
-int computeOnGPU(int N, int K, double D, int chunkSize, double *tValues, Point *allPoints, int *proximities)
+/**
+ * @brief Perform the GPU computation for finding proximity criteria.
+ * @param numPoints Number of points.
+ * @param proximity Proximity value.
+ * @param distance Distance value.
+ * @param numT Number of t values.
+ * @param actualTValues Array of actual t values.
+ * @param pointArr Array of points.
+ * @param tidsAndPids array of tids and pids.
+ * @return 0 on success.
+ */
+int computeOnGPU(int numPoints, int proximtity, double distance, int numT, double* actualTValues, Point* pointsArr, int* tidsAndPids)
 {
-    printf("N = %d K = %d D = %lf chunck = %d\n",N,K,D,chunkSize);
+    printf("N = %d K = %d D = %lf chunck = %d\n",numPoints,proximtity,distance,numT);
     cudaError_t err = cudaSuccess;
 
     int threadPerBlock = THREADS_PER_BLOCK;
-    int blocksPerGrid = (N + threadPerBlock - 1) / threadPerBlock;
-    Point *d_points;
-    int *d_proximities = NULL;
-    /*Allocating mem on gpu section*/
-    allocateMemDevice((void **)&d_proximities, CONSTRAINT * chunkSize * sizeof(int)); // proximites == globalflags
-    allocateMemDevice((void **)&d_points, N * sizeof(Point));
-    /*End allocate mem*/
+    int blocksPerGrid = (numPoints + threadPerBlock - 1) / threadPerBlock;
+    Point* pointsArrDevice = NULL;
+    int* tidsAndPidsDevice = NULL;
 
-    /*Copy mem to Device section*/
-    copyMemory(d_points, allPoints, N * sizeof(Point), cudaMemcpyHostToDevice);
-    copyMemory(d_proximities, proximities, chunkSize * CONSTRAINT * sizeof(int), cudaMemcpyHostToDevice);
-    /*End copy mem to Device*/
+    /*Allocating memory on gpu section*/
+    allocateMemoryOnDevice((void **)&tidsAndPidsDevice, CONSTRAINT * numT * sizeof(int));
+    allocateMemoryOnDevice((void **)&pointsArrDevice, numPoints * sizeof(Point));
+
+
+    /*Copy memory to Device section*/
+    copyMemory(pointsArrDevice, pointsArr, numPoints * sizeof(Point), cudaMemcpyHostToDevice);
+    copyMemory(tidsAndPidsDevice, tidsAndPids, numT * CONSTRAINT * sizeof(int), cudaMemcpyHostToDevice);
 
     /*for each tvalue we will send it to GPU to compute the data and save it on proximites array*/
-    for (int i = 0; i < chunkSize; i++)
+    for (int i = 0; i < numT; i++)
     {
-        calculateProximity<<<blocksPerGrid, threadPerBlock>>>(d_points, N, tValues[i], D, d_proximities, K, i);
+        calculateProximity<<<blocksPerGrid, threadPerBlock>>>(pointsArrDevice, numPoints, actualTValues[i], distance, tidsAndPidsDevice, proximtity, i);
         err = cudaGetLastError();
-        if (err != cudaSuccess)
-        {
+        if (err != cudaSuccess){
             fprintf(stderr, "Failed to lanch calculateProximity kernel. -%s\n", cudaGetErrorString(err));
             exit(EXIT_FAILURE);
         }
     }
 
-    err = cudaMemcpy(proximities, d_proximities, chunkSize * CONSTRAINT * sizeof(int), cudaMemcpyDeviceToHost);
-    if (err != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to copy data. -%s\n", cudaGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
+    //Copying the array that holds the Proximty Criteria to each matched t index
+    copyMemory(tidsAndPids,tidsAndPidsDevice,numT * CONSTRAINT * sizeof(int), cudaMemcpyDeviceToHost);
 
-    if (err != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to copy data. -%s\n", cudaGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
-
-    if (cudaFree(d_points) != cudaSuccess)
-    {
+    /*Freeing memoery back to device section*/
+    if (cudaFree(pointsArrDevice) != cudaSuccess){
         fprintf(stderr, "Failed to free device data - %s\n", cudaGetErrorString(err));
         exit(EXIT_FAILURE);
     }
-    if (cudaFree(d_proximities) != cudaSuccess)
-    {
+
+    if (cudaFree(tidsAndPidsDevice) != cudaSuccess){
         fprintf(stderr, "Failed to free device data - %s\n", cudaGetErrorString(err));
         exit(EXIT_FAILURE);
     }
